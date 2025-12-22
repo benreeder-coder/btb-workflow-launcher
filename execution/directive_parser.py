@@ -173,6 +173,9 @@ def scan_directives(directives_dir: Path) -> list[dict]:
     workflows = []
 
     for md_file in sorted(directives_dir.glob('*.md')):
+        # Skip template and example files
+        if md_file.stem.startswith('_') or md_file.stem.startswith('TEMPLATE') or '.example' in md_file.name:
+            continue
         try:
             workflow = parse_directive(md_file)
             workflows.append(workflow)
