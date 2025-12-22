@@ -7,11 +7,16 @@ Usage:
 
 Requirements:
     pip install google-auth google-auth-oauthlib google-auth-httplib2 google-api-python-client
+
+Environment Variables (for cloud deployment):
+    GOOGLE_TOKEN - JSON string of OAuth token (from token.json)
+    GOOGLE_CREDENTIALS - JSON string of OAuth credentials (from credentials.json)
 """
 
 import argparse
 import base64
 import json
+import os
 import re
 import sys
 from email.mime.text import MIMEText
@@ -38,31 +43,64 @@ DEFAULT_LOGO_URL = "https://i.imgur.com/EeWMfvf.png"
 
 
 def get_gmail_service():
-    """Authenticate and return Gmail API service."""
+    """Authenticate and return Gmail API service.
+
+    Supports two modes:
+    1. File-based: Uses credentials.json and token.json files (local development)
+    2. Environment-based: Uses GOOGLE_TOKEN env var (cloud deployment)
+    """
     creds = None
 
-    # Load existing token if available
-    if TOKEN_FILE.exists():
+    # Try environment variable first (for cloud deployment)
+    google_token = os.environ.get('GOOGLE_TOKEN')
+    if google_token:
+        try:
+            token_data = json.loads(google_token)
+            creds = Credentials.from_authorized_user_info(token_data, SCOPES)
+        except (json.JSONDecodeError, ValueError) as e:
+            print(f"Warning: Invalid GOOGLE_TOKEN env var: {e}", file=sys.stderr)
+            creds = None
+
+    # Fall back to file-based token
+    if not creds and TOKEN_FILE.exists():
         creds = Credentials.from_authorized_user_file(str(TOKEN_FILE), SCOPES)
 
     # Refresh or create new credentials
     if not creds or not creds.valid:
         if creds and creds.expired and creds.refresh_token:
             creds.refresh(Request())
+            # Update env-based token if that's what we're using
+            if google_token:
+                print("Note: Token was refreshed. Update GOOGLE_TOKEN env var with new token.", file=sys.stderr)
         else:
-            if not CREDENTIALS_FILE.exists():
-                print(f"ERROR: {CREDENTIALS_FILE} not found.", file=sys.stderr)
-                print("Download OAuth credentials from Google Cloud Console.", file=sys.stderr)
+            # Need to do initial OAuth flow - requires credentials.json
+            google_creds = os.environ.get('GOOGLE_CREDENTIALS')
+
+            if google_creds:
+                # Use credentials from environment
+                try:
+                    creds_data = json.loads(google_creds)
+                    flow = InstalledAppFlow.from_client_config(creds_data, SCOPES)
+                    creds = flow.run_local_server(port=0)
+                except (json.JSONDecodeError, ValueError) as e:
+                    print(f"ERROR: Invalid GOOGLE_CREDENTIALS env var: {e}", file=sys.stderr)
+                    sys.exit(1)
+            elif CREDENTIALS_FILE.exists():
+                # Use credentials from file
+                flow = InstalledAppFlow.from_client_secrets_file(
+                    str(CREDENTIALS_FILE), SCOPES
+                )
+                creds = flow.run_local_server(port=0)
+            else:
+                print("ERROR: No valid credentials found.", file=sys.stderr)
+                print("For local dev: Place credentials.json in project root", file=sys.stderr)
+                print("For cloud: Set GOOGLE_TOKEN env var with token.json contents", file=sys.stderr)
                 sys.exit(1)
 
-            flow = InstalledAppFlow.from_client_secrets_file(
-                str(CREDENTIALS_FILE), SCOPES
-            )
-            creds = flow.run_local_server(port=0)
-
-        # Save token for future use
-        with open(TOKEN_FILE, 'w') as token:
-            token.write(creds.to_json())
+        # Save token for future use (file-based only)
+        if not google_token:
+            with open(TOKEN_FILE, 'w') as token:
+                token.write(creds.to_json())
 
     return build('gmail', 'v1', credentials=creds)
 
