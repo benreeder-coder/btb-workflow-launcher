@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>BTB AI | Workflow Launcher</title>
+    <title>BTB AI | Dashboard</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
@@ -38,11 +38,7 @@
             --ease-out-back: cubic-bezier(0.34, 1.56, 0.64, 1);
         }
 
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
 
         html {
             font-size: 16px;
@@ -85,7 +81,6 @@
             100% { transform: translate(-5%, 5%) rotate(3deg); }
         }
 
-        /* Noise texture overlay */
         .noise {
             position: fixed;
             inset: 0;
@@ -99,24 +94,30 @@
         .app {
             max-width: 1400px;
             margin: 0 auto;
-            padding: 3rem 2rem 4rem;
+            padding: 2rem 2rem 4rem;
             position: relative;
         }
 
-        /* Header */
+        /* Header with tabs */
         .header {
             display: flex;
             align-items: center;
-            gap: 1rem;
-            margin-bottom: 4rem;
+            justify-content: space-between;
+            margin-bottom: 2rem;
             opacity: 0;
             animation: fadeSlideUp 0.8s var(--ease-out-expo) 0.1s forwards;
         }
 
+        .header-left {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+        }
+
         .logo {
-            width: 52px;
-            height: 52px;
-            border-radius: 14px;
+            width: 44px;
+            height: 44px;
+            border-radius: 12px;
             object-fit: contain;
             filter: drop-shadow(0 0 20px var(--accent-glow-strong));
         }
@@ -124,11 +125,11 @@
         .brand {
             display: flex;
             flex-direction: column;
-            gap: 0.15rem;
+            gap: 0.1rem;
         }
 
         .brand-name {
-            font-size: 1.5rem;
+            font-size: 1.35rem;
             font-weight: 700;
             letter-spacing: -0.03em;
             background: linear-gradient(135deg, var(--text-primary) 0%, var(--text-secondary) 100%);
@@ -138,71 +139,91 @@
         }
 
         .brand-tagline {
-            font-size: 0.75rem;
+            font-size: 0.7rem;
             font-weight: 500;
             color: var(--text-tertiary);
-            letter-spacing: 0.15em;
+            letter-spacing: 0.12em;
             text-transform: uppercase;
         }
 
-        /* Screen transitions */
-        .screen {
+        /* Tab Navigation */
+        .tab-nav {
+            display: flex;
+            gap: 0.25rem;
+            background: var(--bg-card);
+            border: 1px solid var(--border-subtle);
+            border-radius: 12px;
+            padding: 0.25rem;
+        }
+
+        .tab-btn {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.6rem 1.25rem;
+            background: transparent;
+            border: none;
+            border-radius: 9px;
+            color: var(--text-secondary);
+            font-family: var(--font-display);
+            font-size: 0.875rem;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.3s var(--ease-out-expo);
+        }
+
+        .tab-btn:hover {
+            color: var(--text-primary);
+            background: var(--bg-elevated);
+        }
+
+        .tab-btn.active {
+            background: linear-gradient(135deg, var(--accent-dim) 0%, var(--accent) 100%);
+            color: white;
+            box-shadow: 0 4px 12px -4px var(--accent-glow-strong);
+        }
+
+        .tab-btn svg {
+            width: 16px;
+            height: 16px;
+        }
+
+        /* Tab Content */
+        .tab-content {
             display: none;
             opacity: 0;
         }
 
-        .screen.active {
+        .tab-content.active {
             display: block;
-            animation: fadeSlideUp 0.6s var(--ease-out-expo) forwards;
-        }
-
-        .screen.exit {
-            animation: fadeSlideDown 0.4s var(--ease-out-expo) forwards;
+            animation: fadeSlideUp 0.5s var(--ease-out-expo) forwards;
         }
 
         @keyframes fadeSlideUp {
-            from {
-                opacity: 0;
-                transform: translateY(24px);
-            }
-            to {
-                opacity: 1;
-                transform: translateY(0);
-            }
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
         }
 
-        @keyframes fadeSlideDown {
-            from {
-                opacity: 1;
-                transform: translateY(0);
-            }
-            to {
-                opacity: 0;
-                transform: translateY(-16px);
-            }
-        }
-
-        /* Section header */
+        /* ==================== WORKFLOWS TAB ==================== */
         .section-header {
-            margin-bottom: 2.5rem;
+            margin-bottom: 2rem;
         }
 
         .section-title {
-            font-size: 2rem;
+            font-size: 1.75rem;
             font-weight: 600;
             letter-spacing: -0.03em;
-            margin-bottom: 0.5rem;
+            margin-bottom: 0.35rem;
         }
 
         .section-subtitle {
             color: var(--text-secondary);
-            font-size: 1.05rem;
+            font-size: 0.95rem;
         }
 
-        /* Workflow grid */
         .workflow-grid {
             display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+            grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
             gap: 1.25rem;
         }
 
@@ -211,387 +232,409 @@
             background: var(--bg-card);
             border: 1px solid var(--border-subtle);
             border-radius: 16px;
-            padding: 1.75rem;
+            padding: 1.5rem;
             cursor: pointer;
             transition: all 0.4s var(--ease-out-expo);
             overflow: hidden;
-            opacity: 0;
-            animation: cardReveal 0.6s var(--ease-out-expo) forwards;
-        }
-
-        .workflow-card:nth-child(1) { animation-delay: 0.1s; }
-        .workflow-card:nth-child(2) { animation-delay: 0.15s; }
-        .workflow-card:nth-child(3) { animation-delay: 0.2s; }
-        .workflow-card:nth-child(4) { animation-delay: 0.25s; }
-        .workflow-card:nth-child(5) { animation-delay: 0.3s; }
-        .workflow-card:nth-child(6) { animation-delay: 0.35s; }
-
-        @keyframes cardReveal {
-            from {
-                opacity: 0;
-                transform: translateY(20px) scale(0.98);
-            }
-            to {
-                opacity: 1;
-                transform: translateY(0) scale(1);
-            }
-        }
-
-        .workflow-card::before {
-            content: '';
-            position: absolute;
-            inset: 0;
-            border-radius: 16px;
-            padding: 1px;
-            background: linear-gradient(135deg, transparent 40%, var(--accent-dim) 100%);
-            -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
-            mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
-            -webkit-mask-composite: xor;
-            mask-composite: exclude;
-            opacity: 0;
-            transition: opacity 0.4s var(--ease-out-expo);
         }
 
         .workflow-card:hover {
             background: var(--bg-card-hover);
             border-color: var(--border-glow);
-            transform: translateY(-4px);
-            box-shadow:
-                0 20px 40px -15px rgba(0, 0, 0, 0.5),
-                0 0 0 1px var(--accent-glow);
-        }
-
-        .workflow-card:hover::before {
-            opacity: 1;
+            transform: translateY(-3px);
+            box-shadow: 0 16px 32px -12px rgba(0, 0, 0, 0.5), 0 0 0 1px var(--accent-glow);
         }
 
         .card-icon {
-            width: 44px;
-            height: 44px;
-            border-radius: 12px;
+            width: 40px;
+            height: 40px;
+            border-radius: 10px;
             background: linear-gradient(135deg, var(--accent-dim) 0%, var(--accent) 100%);
             display: flex;
             align-items: center;
             justify-content: center;
-            margin-bottom: 1.25rem;
-            box-shadow: 0 8px 24px -8px var(--accent-glow-strong);
+            margin-bottom: 1rem;
+            box-shadow: 0 6px 20px -6px var(--accent-glow-strong);
         }
 
-        .card-icon svg {
-            width: 22px;
-            height: 22px;
-            color: white;
-        }
-
-        .card-title {
-            font-size: 1.2rem;
-            font-weight: 600;
-            letter-spacing: -0.02em;
-            margin-bottom: 0.5rem;
-        }
-
-        .card-description {
-            color: var(--text-secondary);
-            font-size: 0.9rem;
-            line-height: 1.55;
-            margin-bottom: 1.25rem;
-            display: -webkit-box;
-            -webkit-line-clamp: 2;
-            -webkit-box-orient: vertical;
-            overflow: hidden;
-        }
-
-        .card-meta {
-            display: flex;
-            align-items: center;
-            gap: 0.5rem;
-        }
+        .card-icon svg { width: 20px; height: 20px; color: white; }
+        .card-title { font-size: 1.1rem; font-weight: 600; letter-spacing: -0.02em; margin-bottom: 0.4rem; }
+        .card-description { color: var(--text-secondary); font-size: 0.85rem; line-height: 1.5; margin-bottom: 1rem; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
 
         .badge {
             display: inline-flex;
             align-items: center;
-            gap: 0.35rem;
-            padding: 0.35rem 0.75rem;
+            gap: 0.3rem;
+            padding: 0.3rem 0.65rem;
             background: var(--accent-glow);
             border: 1px solid rgba(168, 85, 247, 0.2);
-            border-radius: 20px;
-            font-size: 0.75rem;
+            border-radius: 16px;
+            font-size: 0.7rem;
             font-weight: 500;
             color: var(--accent-light);
             font-family: var(--font-mono);
         }
 
-        .badge svg {
-            width: 12px;
-            height: 12px;
-        }
+        .badge svg { width: 11px; height: 11px; }
 
-        /* Empty state */
-        .empty-state {
-            text-align: center;
-            padding: 4rem 2rem;
-            color: var(--text-tertiary);
-        }
+        /* Form Screen */
+        .screen { display: none; }
+        .screen.active { display: block; animation: fadeSlideUp 0.5s var(--ease-out-expo) forwards; }
 
-        .empty-state-icon {
-            width: 64px;
-            height: 64px;
-            margin: 0 auto 1.5rem;
-            opacity: 0.4;
-        }
-
-        /* Form screen */
-        .form-container {
-            max-width: 640px;
-            margin: 0 auto;
-        }
+        .form-container { max-width: 600px; margin: 0 auto; }
 
         .back-button {
             display: inline-flex;
             align-items: center;
             gap: 0.5rem;
-            padding: 0.65rem 1rem;
+            padding: 0.55rem 0.9rem;
             background: var(--bg-card);
             border: 1px solid var(--border-subtle);
-            border-radius: 10px;
+            border-radius: 9px;
             color: var(--text-secondary);
             font-family: var(--font-display);
-            font-size: 0.875rem;
+            font-size: 0.8rem;
             font-weight: 500;
             cursor: pointer;
             transition: all 0.3s var(--ease-out-expo);
-            margin-bottom: 2rem;
+            margin-bottom: 1.5rem;
         }
 
-        .back-button:hover {
-            background: var(--bg-card-hover);
-            color: var(--text-primary);
-            border-color: var(--border-glow);
-        }
+        .back-button:hover { background: var(--bg-card-hover); color: var(--text-primary); }
+        .back-button svg { width: 14px; height: 14px; }
 
-        .back-button svg {
-            width: 16px;
-            height: 16px;
-            transition: transform 0.3s var(--ease-out-expo);
-        }
+        .form-header { margin-bottom: 2rem; padding-bottom: 1.5rem; border-bottom: 1px solid var(--border-subtle); }
+        .form-title { font-size: 1.5rem; font-weight: 600; letter-spacing: -0.03em; margin-bottom: 0.4rem; }
+        .form-description { color: var(--text-secondary); font-size: 0.9rem; }
 
-        .back-button:hover svg {
-            transform: translateX(-3px);
-        }
-
-        .form-header {
-            margin-bottom: 2.5rem;
-            padding-bottom: 2rem;
-            border-bottom: 1px solid var(--border-subtle);
-        }
-
-        .form-title {
-            font-size: 1.75rem;
-            font-weight: 600;
-            letter-spacing: -0.03em;
-            margin-bottom: 0.5rem;
-        }
-
-        .form-description {
-            color: var(--text-secondary);
-            font-size: 1rem;
-            line-height: 1.6;
-        }
-
-        .form-body {
-            display: flex;
-            flex-direction: column;
-            gap: 1.5rem;
-        }
-
-        .form-group {
-            display: flex;
-            flex-direction: column;
-            gap: 0.5rem;
-        }
-
-        .form-label {
-            display: flex;
-            align-items: center;
-            gap: 0.5rem;
-            font-size: 0.875rem;
-            font-weight: 500;
-            color: var(--text-secondary);
-        }
-
-        .form-label .required {
-            color: var(--accent);
-        }
-
-        .form-label .source-badge {
-            font-family: var(--font-mono);
-            font-size: 0.65rem;
-            padding: 0.2rem 0.45rem;
-            background: var(--bg-elevated);
-            border-radius: 4px;
-            color: var(--text-tertiary);
-            text-transform: uppercase;
-            letter-spacing: 0.05em;
-        }
+        .form-body { display: flex; flex-direction: column; gap: 1.25rem; }
+        .form-group { display: flex; flex-direction: column; gap: 0.4rem; }
+        .form-label { display: flex; align-items: center; gap: 0.4rem; font-size: 0.8rem; font-weight: 500; color: var(--text-secondary); }
+        .form-label .required { color: var(--accent); }
+        .form-label .source-badge { font-family: var(--font-mono); font-size: 0.6rem; padding: 0.15rem 0.4rem; background: var(--bg-elevated); border-radius: 4px; color: var(--text-tertiary); text-transform: uppercase; }
 
         .form-input {
             width: 100%;
-            padding: 0.9rem 1rem;
+            padding: 0.8rem 0.9rem;
             background: var(--bg-base);
             border: 1px solid var(--border-subtle);
-            border-radius: 10px;
+            border-radius: 9px;
             color: var(--text-primary);
             font-family: var(--font-display);
-            font-size: 0.95rem;
+            font-size: 0.9rem;
             transition: all 0.3s var(--ease-out-expo);
         }
 
-        .form-input::placeholder {
-            color: var(--text-muted);
-        }
+        .form-input::placeholder { color: var(--text-muted); }
+        .form-input:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-glow); }
+        .form-hint { font-size: 0.7rem; color: var(--text-tertiary); }
 
-        .form-input:hover {
-            border-color: var(--border-glow);
-        }
-
-        .form-input:focus {
-            outline: none;
-            border-color: var(--accent);
-            box-shadow: 0 0 0 3px var(--accent-glow);
-        }
-
-        .form-hint {
-            font-size: 0.75rem;
-            color: var(--text-tertiary);
-        }
-
-        /* Buttons */
         .btn-primary {
             display: inline-flex;
             align-items: center;
             justify-content: center;
-            gap: 0.6rem;
+            gap: 0.5rem;
             width: 100%;
-            padding: 1rem 1.5rem;
-            margin-top: 1rem;
+            padding: 0.9rem 1.25rem;
+            margin-top: 0.75rem;
+            background: linear-gradient(135deg, var(--accent-dim) 0%, var(--accent) 100%);
+            border: none;
+            border-radius: 10px;
+            color: white;
+            font-family: var(--font-display);
+            font-size: 0.95rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s var(--ease-out-expo);
+            box-shadow: 0 6px 20px -6px var(--accent-glow-strong);
+        }
+
+        .btn-primary:hover { transform: translateY(-2px); box-shadow: 0 10px 28px -8px var(--accent-glow-strong); }
+        .btn-primary:disabled { opacity: 0.6; cursor: not-allowed; transform: none; }
+        .btn-primary svg { width: 16px; height: 16px; }
+
+        .spinner { width: 16px; height: 16px; border: 2px solid rgba(255,255,255,0.3); border-top-color: white; border-radius: 50%; animation: spin 0.8s linear infinite; }
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        .status { display: none; align-items: flex-start; gap: 0.6rem; padding: 0.9rem 1rem; border-radius: 10px; margin-top: 1.25rem; font-size: 0.85rem; }
+        .status.show { display: flex; animation: fadeSlideUp 0.4s var(--ease-out-back); }
+        .status svg { flex-shrink: 0; width: 18px; height: 18px; }
+        .status.success { background: rgba(34, 197, 94, 0.1); border: 1px solid rgba(34, 197, 94, 0.25); color: var(--success); }
+        .status.error { background: rgba(239, 68, 68, 0.1); border: 1px solid rgba(239, 68, 68, 0.25); color: var(--error); }
+        .status-content strong { display: block; margin-bottom: 0.2rem; }
+
+        /* ==================== CHAT TAB ==================== */
+        .chat-container {
+            display: grid;
+            grid-template-columns: 280px 1fr;
+            gap: 1.5rem;
+            height: calc(100vh - 180px);
+            min-height: 500px;
+        }
+
+        /* Chat History Sidebar */
+        .chat-sidebar {
+            background: var(--bg-card);
+            border: 1px solid var(--border-subtle);
+            border-radius: 16px;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        .sidebar-header {
+            padding: 1rem 1.25rem;
+            border-bottom: 1px solid var(--border-subtle);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .sidebar-title {
+            font-size: 0.9rem;
+            font-weight: 600;
+            color: var(--text-primary);
+        }
+
+        .new-chat-btn {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 32px;
+            height: 32px;
+            background: var(--accent-glow);
+            border: 1px solid rgba(168, 85, 247, 0.3);
+            border-radius: 8px;
+            color: var(--accent-light);
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .new-chat-btn:hover {
+            background: var(--accent);
+            color: white;
+        }
+
+        .new-chat-btn svg { width: 16px; height: 16px; }
+
+        .chat-history-list {
+            flex: 1;
+            overflow-y: auto;
+            padding: 0.5rem;
+        }
+
+        .chat-history-item {
+            padding: 0.75rem 1rem;
+            border-radius: 10px;
+            cursor: pointer;
+            transition: all 0.2s;
+            margin-bottom: 0.25rem;
+        }
+
+        .chat-history-item:hover {
+            background: var(--bg-elevated);
+        }
+
+        .chat-history-item.active {
+            background: var(--accent-glow);
+            border: 1px solid rgba(168, 85, 247, 0.2);
+        }
+
+        .chat-history-title {
+            font-size: 0.85rem;
+            font-weight: 500;
+            color: var(--text-primary);
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            margin-bottom: 0.2rem;
+        }
+
+        .chat-history-date {
+            font-size: 0.7rem;
+            color: var(--text-tertiary);
+        }
+
+        .chat-history-empty {
+            padding: 2rem 1rem;
+            text-align: center;
+            color: var(--text-tertiary);
+            font-size: 0.8rem;
+        }
+
+        /* Chat Main Area */
+        .chat-main {
+            background: var(--bg-card);
+            border: 1px solid var(--border-subtle);
+            border-radius: 16px;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        .chat-messages {
+            flex: 1;
+            overflow-y: auto;
+            padding: 1.5rem;
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        .chat-welcome {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+            padding: 2rem;
+        }
+
+        .chat-welcome-icon {
+            width: 64px;
+            height: 64px;
+            border-radius: 16px;
+            background: linear-gradient(135deg, var(--accent-dim) 0%, var(--accent) 100%);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-bottom: 1.25rem;
+            box-shadow: 0 12px 32px -8px var(--accent-glow-strong);
+        }
+
+        .chat-welcome-icon svg { width: 32px; height: 32px; color: white; }
+        .chat-welcome h2 { font-size: 1.25rem; font-weight: 600; margin-bottom: 0.5rem; }
+        .chat-welcome p { color: var(--text-secondary); font-size: 0.9rem; max-width: 320px; }
+
+        .message {
+            display: flex;
+            gap: 0.75rem;
+            max-width: 85%;
+            animation: messageIn 0.3s var(--ease-out-expo);
+        }
+
+        @keyframes messageIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .message.user { align-self: flex-end; flex-direction: row-reverse; }
+
+        .message-avatar {
+            width: 32px;
+            height: 32px;
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+        }
+
+        .message.assistant .message-avatar {
+            background: linear-gradient(135deg, var(--accent-dim) 0%, var(--accent) 100%);
+        }
+
+        .message.user .message-avatar {
+            background: var(--bg-elevated);
+            border: 1px solid var(--border-subtle);
+        }
+
+        .message-avatar svg { width: 16px; height: 16px; color: white; }
+        .message.user .message-avatar svg { color: var(--text-secondary); }
+
+        .message-content {
+            padding: 0.85rem 1rem;
+            border-radius: 12px;
+            font-size: 0.9rem;
+            line-height: 1.55;
+        }
+
+        .message.assistant .message-content {
+            background: var(--bg-elevated);
+            border: 1px solid var(--border-subtle);
+            color: var(--text-primary);
+        }
+
+        .message.user .message-content {
+            background: linear-gradient(135deg, var(--accent-dim) 0%, var(--accent) 100%);
+            color: white;
+        }
+
+        .message-content p { margin: 0; }
+        .message-content p + p { margin-top: 0.75rem; }
+
+        .typing-indicator {
+            display: flex;
+            gap: 0.3rem;
+            padding: 0.5rem 0;
+        }
+
+        .typing-indicator span {
+            width: 6px;
+            height: 6px;
+            background: var(--text-tertiary);
+            border-radius: 50%;
+            animation: typing 1.4s infinite;
+        }
+
+        .typing-indicator span:nth-child(2) { animation-delay: 0.2s; }
+        .typing-indicator span:nth-child(3) { animation-delay: 0.4s; }
+
+        @keyframes typing {
+            0%, 60%, 100% { transform: translateY(0); opacity: 0.4; }
+            30% { transform: translateY(-4px); opacity: 1; }
+        }
+
+        /* Chat Input */
+        .chat-input-container {
+            padding: 1rem 1.25rem;
+            border-top: 1px solid var(--border-subtle);
+            background: var(--bg-elevated);
+        }
+
+        .chat-input-wrapper {
+            display: flex;
+            gap: 0.75rem;
+            align-items: flex-end;
+        }
+
+        .chat-input {
+            flex: 1;
+            padding: 0.85rem 1rem;
+            background: var(--bg-base);
+            border: 1px solid var(--border-subtle);
+            border-radius: 12px;
+            color: var(--text-primary);
+            font-family: var(--font-display);
+            font-size: 0.9rem;
+            resize: none;
+            min-height: 44px;
+            max-height: 120px;
+            transition: all 0.2s;
+        }
+
+        .chat-input::placeholder { color: var(--text-muted); }
+        .chat-input:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-glow); }
+
+        .chat-send-btn {
+            width: 44px;
+            height: 44px;
             background: linear-gradient(135deg, var(--accent-dim) 0%, var(--accent) 100%);
             border: none;
             border-radius: 12px;
             color: white;
-            font-family: var(--font-display);
-            font-size: 1rem;
-            font-weight: 600;
             cursor: pointer;
-            transition: all 0.3s var(--ease-out-expo);
-            box-shadow: 0 8px 24px -8px var(--accent-glow-strong);
-            position: relative;
-            overflow: hidden;
-        }
-
-        .btn-primary::before {
-            content: '';
-            position: absolute;
-            inset: 0;
-            background: linear-gradient(135deg, var(--accent) 0%, var(--accent-light) 100%);
-            opacity: 0;
-            transition: opacity 0.3s;
-        }
-
-        .btn-primary:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 12px 32px -8px var(--accent-glow-strong);
-        }
-
-        .btn-primary:hover::before {
-            opacity: 1;
-        }
-
-        .btn-primary:active {
-            transform: translateY(0);
-        }
-
-        .btn-primary:disabled {
-            opacity: 0.6;
-            cursor: not-allowed;
-            transform: none;
-        }
-
-        .btn-primary span,
-        .btn-primary svg {
-            position: relative;
-            z-index: 1;
-        }
-
-        .btn-primary svg {
-            width: 18px;
-            height: 18px;
-        }
-
-        /* Spinner */
-        .spinner {
-            width: 18px;
-            height: 18px;
-            border: 2px solid rgba(255, 255, 255, 0.3);
-            border-top-color: white;
-            border-radius: 50%;
-            animation: spin 0.8s linear infinite;
-        }
-
-        @keyframes spin {
-            to { transform: rotate(360deg); }
-        }
-
-        /* Status messages */
-        .status {
-            display: none;
-            align-items: flex-start;
-            gap: 0.75rem;
-            padding: 1rem 1.25rem;
-            border-radius: 12px;
-            margin-top: 1.5rem;
-            font-size: 0.9rem;
-            line-height: 1.5;
-            animation: statusReveal 0.4s var(--ease-out-back);
-        }
-
-        @keyframes statusReveal {
-            from {
-                opacity: 0;
-                transform: translateY(-8px) scale(0.98);
-            }
-            to {
-                opacity: 1;
-                transform: translateY(0) scale(1);
-            }
-        }
-
-        .status.show {
+            transition: all 0.2s;
             display: flex;
-        }
-
-        .status svg {
+            align-items: center;
+            justify-content: center;
             flex-shrink: 0;
-            width: 20px;
-            height: 20px;
-            margin-top: 1px;
         }
 
-        .status.success {
-            background: rgba(34, 197, 94, 0.1);
-            border: 1px solid rgba(34, 197, 94, 0.25);
-            color: var(--success);
-        }
-
-        .status.error {
-            background: rgba(239, 68, 68, 0.1);
-            border: 1px solid rgba(239, 68, 68, 0.25);
-            color: var(--error);
-        }
-
-        .status-content strong {
-            display: block;
-            margin-bottom: 0.25rem;
-        }
+        .chat-send-btn:hover { transform: scale(1.05); box-shadow: 0 6px 20px -6px var(--accent-glow-strong); }
+        .chat-send-btn:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+        .chat-send-btn svg { width: 18px; height: 18px; }
 
         /* Loading overlay */
         .loading-overlay {
@@ -608,51 +651,21 @@
             transition: all 0.3s;
         }
 
-        .loading-overlay.show {
-            opacity: 1;
-            visibility: visible;
-        }
-
-        .loading-content {
-            text-align: center;
-        }
-
-        .loading-spinner {
-            width: 48px;
-            height: 48px;
-            border: 3px solid var(--border-subtle);
-            border-top-color: var(--accent);
-            border-radius: 50%;
-            animation: spin 1s linear infinite;
-            margin: 0 auto 1rem;
-        }
-
-        .loading-text {
-            color: var(--text-secondary);
-            font-size: 0.9rem;
-        }
+        .loading-overlay.show { opacity: 1; visibility: visible; }
+        .loading-spinner { width: 40px; height: 40px; border: 3px solid var(--border-subtle); border-top-color: var(--accent); border-radius: 50%; animation: spin 1s linear infinite; }
 
         /* Responsive */
+        @media (max-width: 900px) {
+            .chat-container { grid-template-columns: 1fr; }
+            .chat-sidebar { display: none; }
+        }
+
         @media (max-width: 768px) {
-            .app {
-                padding: 2rem 1.25rem 3rem;
-            }
-
-            .header {
-                margin-bottom: 3rem;
-            }
-
-            .section-title {
-                font-size: 1.5rem;
-            }
-
-            .workflow-grid {
-                grid-template-columns: 1fr;
-            }
-
-            .form-title {
-                font-size: 1.4rem;
-            }
+            .app { padding: 1.5rem 1rem 3rem; }
+            .header { flex-direction: column; gap: 1rem; align-items: flex-start; }
+            .tab-nav { width: 100%; }
+            .tab-btn { flex: 1; justify-content: center; }
+            .workflow-grid { grid-template-columns: 1fr; }
         }
     </style>
 </head>
@@ -661,259 +674,234 @@
     <div class="noise"></div>
 
     <div class="app">
-        <!-- Header -->
+        <!-- Header with Tabs -->
         <header class="header">
-            <img src="/assets/logo.png" alt="BTB AI" class="logo" onerror="this.style.display='none'">
-            <div class="brand">
-                <span class="brand-name">BTB AI</span>
-                <span class="brand-tagline">Workflow Launcher</span>
+            <div class="header-left">
+                <img src="/assets/logo.png" alt="BTB AI" class="logo" onerror="this.style.display='none'">
+                <div class="brand">
+                    <span class="brand-name">BTB AI</span>
+                    <span class="brand-tagline">Command Center</span>
+                </div>
             </div>
+            <nav class="tab-nav">
+                <button class="tab-btn active" data-tab="workflows">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/>
+                    </svg>
+                    Workflows
+                </button>
+                <button class="tab-btn" data-tab="chat">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+                    </svg>
+                    Chat
+                </button>
+            </nav>
         </header>
 
-        <!-- Screen 1: Workflow List -->
-        <main id="screen-list" class="screen active">
-            <div class="section-header">
-                <h1 class="section-title">Select a Workflow</h1>
-                <p class="section-subtitle">Choose an automation to configure and run</p>
-            </div>
-            <div id="workflow-grid" class="workflow-grid">
-                <!-- Cards populated by JS -->
-            </div>
-        </main>
-
-        <!-- Screen 2: Workflow Form -->
-        <main id="screen-form" class="screen">
-            <div class="form-container">
-                <button class="back-button" onclick="showScreen('list')">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                        <path d="M19 12H5M12 19l-7-7 7-7"/>
-                    </svg>
-                    Back to Workflows
-                </button>
-
-                <div class="form-header">
-                    <h2 id="form-title" class="form-title"></h2>
-                    <p id="form-description" class="form-description"></p>
+        <!-- Workflows Tab -->
+        <div id="tab-workflows" class="tab-content active">
+            <div id="screen-list" class="screen active">
+                <div class="section-header">
+                    <h1 class="section-title">Workflows</h1>
+                    <p class="section-subtitle">Select an automation to configure and run</p>
                 </div>
+                <div id="workflow-grid" class="workflow-grid"></div>
+            </div>
 
-                <form id="workflow-form" class="form-body" onsubmit="handleSubmit(event)">
-                    <!-- Fields populated by JS -->
-                </form>
-
-                <div id="status" class="status">
-                    <svg id="status-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></svg>
-                    <div id="status-content" class="status-content"></div>
+            <div id="screen-form" class="screen">
+                <div class="form-container">
+                    <button class="back-button" onclick="showWorkflowScreen('list')">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
+                        Back
+                    </button>
+                    <div class="form-header">
+                        <h2 id="form-title" class="form-title"></h2>
+                        <p id="form-description" class="form-description"></p>
+                    </div>
+                    <form id="workflow-form" class="form-body" onsubmit="handleWorkflowSubmit(event)"></form>
+                    <div id="status" class="status">
+                        <svg id="status-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"></svg>
+                        <div id="status-content" class="status-content"></div>
+                    </div>
                 </div>
             </div>
-        </main>
-    </div>
+        </div>
 
-    <!-- Loading overlay -->
-    <div id="loading-overlay" class="loading-overlay">
-        <div class="loading-content">
-            <div class="loading-spinner"></div>
-            <p class="loading-text">Loading workflows...</p>
+        <!-- Chat Tab -->
+        <div id="tab-chat" class="tab-content">
+            <div class="chat-container">
+                <aside class="chat-sidebar">
+                    <div class="sidebar-header">
+                        <span class="sidebar-title">Chat History</span>
+                        <button class="new-chat-btn" onclick="startNewChat()" title="New Chat">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                        </button>
+                    </div>
+                    <div id="chat-history-list" class="chat-history-list"></div>
+                </aside>
+                <main class="chat-main">
+                    <div id="chat-messages" class="chat-messages">
+                        <div class="chat-welcome">
+                            <div class="chat-welcome-icon">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+                            </div>
+                            <h2>BTB AI Assistant</h2>
+                            <p>Ask me anything about your calls, meetings, or business data.</p>
+                        </div>
+                    </div>
+                    <div class="chat-input-container">
+                        <div class="chat-input-wrapper">
+                            <textarea id="chat-input" class="chat-input" placeholder="Type your message..." rows="1" onkeydown="handleChatKeydown(event)"></textarea>
+                            <button id="chat-send-btn" class="chat-send-btn" onclick="sendMessage()">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+                            </button>
+                        </div>
+                    </div>
+                </main>
+            </div>
         </div>
     </div>
 
-    <script>
-        // Configuration
-        const API_BASE = window.location.origin;
+    <div id="loading-overlay" class="loading-overlay">
+        <div class="loading-spinner"></div>
+    </div>
 
-        // State
+    <script>
+        // ==================== CONFIG ====================
+        const API_BASE = window.location.origin;
+        const CHAT_WEBHOOK = 'https://breeder80.app.n8n.cloud/webhook/btb-ai-rag-chatbot-agent';
+        const STORAGE_KEY = 'btb_chat_history';
+
+        // ==================== STATE ====================
         let workflows = [];
         let currentWorkflow = null;
+        let chatHistory = [];
+        let currentChatId = null;
+        let isTyping = false;
 
-        // DOM Elements
-        const screenList = document.getElementById('screen-list');
-        const screenForm = document.getElementById('screen-form');
-        const workflowGrid = document.getElementById('workflow-grid');
-        const workflowForm = document.getElementById('workflow-form');
-        const formTitle = document.getElementById('form-title');
-        const formDescription = document.getElementById('form-description');
-        const statusEl = document.getElementById('status');
-        const statusIcon = document.getElementById('status-icon');
-        const statusContent = document.getElementById('status-content');
-        const loadingOverlay = document.getElementById('loading-overlay');
-
-        // Icons
+        // ==================== ICONS ====================
         const icons = {
-            workflow: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/>
-                <circle cx="9" cy="7" r="4"/>
-                <path d="M22 21v-2a4 4 0 0 0-3-3.87"/>
-                <path d="M16 3.13a4 4 0 0 1 0 7.75"/>
-            </svg>`,
-            inputs: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <path d="M4 7h16M4 12h16M4 17h10"/>
-            </svg>`,
-            play: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <polygon points="5 3 19 12 5 21 5 3"/>
-            </svg>`,
+            workflow: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>`,
+            inputs: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 7h16M4 12h16M4 17h10"/></svg>`,
+            play: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="5 3 19 12 5 21 5 3"/></svg>`,
             success: `<path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/>`,
             error: `<circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/>`,
-            empty: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-                <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/>
-                <line x1="9" y1="9" x2="15" y2="15"/>
-                <line x1="15" y1="9" x2="9" y2="15"/>
-            </svg>`
+            user: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>`,
+            bot: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="10" rx="2"/><circle cx="12" cy="5" r="2"/><path d="M12 7v4"/><line x1="8" y1="16" x2="8" y2="16"/><line x1="16" y1="16" x2="16" y2="16"/></svg>`
         };
 
-        // Initialize
-        async function init() {
-            showLoading(true);
+        // ==================== INIT ====================
+        document.addEventListener('DOMContentLoaded', () => {
+            initTabs();
+            loadWorkflows();
+            loadChatHistory();
+            autoResizeTextarea();
+        });
+
+        // ==================== TABS ====================
+        function initTabs() {
+            document.querySelectorAll('.tab-btn').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    const tabId = btn.dataset.tab;
+                    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+                    document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+                    btn.classList.add('active');
+                    document.getElementById(`tab-${tabId}`).classList.add('active');
+                });
+            });
+        }
+
+        // ==================== WORKFLOWS ====================
+        async function loadWorkflows() {
             try {
-                await loadWorkflows();
+                const response = await fetch(`${API_BASE}/api/workflows`);
+                const data = await response.json();
+                workflows = data.workflows;
                 renderWorkflowGrid();
             } catch (error) {
                 console.error('Failed to load workflows:', error);
-                workflowGrid.innerHTML = `
-                    <div class="empty-state">
-                        <div class="empty-state-icon">${icons.empty}</div>
-                        <p>Failed to load workflows. Make sure the API server is running.</p>
-                    </div>
-                `;
-            } finally {
-                showLoading(false);
             }
         }
 
-        // API Functions
-        async function loadWorkflows() {
-            const response = await fetch(`${API_BASE}/api/workflows`);
-            if (!response.ok) throw new Error('Failed to fetch workflows');
-            const data = await response.json();
-            workflows = data.workflows;
-        }
-
-        async function loadWorkflowDetails(id) {
-            const response = await fetch(`${API_BASE}/api/workflows/${id}`);
-            if (!response.ok) throw new Error('Workflow not found');
-            return await response.json();
-        }
-
-        async function runWorkflow(id, inputs) {
-            const response = await fetch(`${API_BASE}/api/workflows/${id}/run`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ inputs })
-            });
-            const data = await response.json();
-            if (!response.ok) throw new Error(data.detail || 'Workflow execution failed');
-            return data;
-        }
-
-        // Render Functions
         function renderWorkflowGrid() {
+            const grid = document.getElementById('workflow-grid');
             if (workflows.length === 0) {
-                workflowGrid.innerHTML = `
-                    <div class="empty-state">
-                        <div class="empty-state-icon">${icons.empty}</div>
-                        <p>No workflows available. Add directive files to the directives/ folder.</p>
-                    </div>
-                `;
+                grid.innerHTML = `<div style="color: var(--text-tertiary); padding: 2rem;">No workflows available.</div>`;
                 return;
             }
-
-            workflowGrid.innerHTML = workflows.map(w => `
+            grid.innerHTML = workflows.map(w => `
                 <article class="workflow-card" onclick="selectWorkflow('${w.id}')">
                     <div class="card-icon">${icons.workflow}</div>
                     <h3 class="card-title">${escapeHtml(w.title)}</h3>
                     <p class="card-description">${escapeHtml(w.description)}</p>
-                    <div class="card-meta">
-                        <span class="badge">
-                            ${icons.inputs}
-                            ${w.input_count} input${w.input_count !== 1 ? 's' : ''}
-                        </span>
-                    </div>
+                    <span class="badge">${icons.inputs} ${w.input_count} input${w.input_count !== 1 ? 's' : ''}</span>
                 </article>
             `).join('');
         }
 
         async function selectWorkflow(id) {
+            showLoading(true);
             try {
-                showLoading(true);
-                currentWorkflow = await loadWorkflowDetails(id);
-                renderForm();
-                showScreen('form');
+                const response = await fetch(`${API_BASE}/api/workflows/${id}`);
+                currentWorkflow = await response.json();
+                renderWorkflowForm();
+                showWorkflowScreen('form');
             } catch (error) {
-                console.error('Failed to load workflow:', error);
-                alert('Failed to load workflow details');
+                alert('Failed to load workflow');
             } finally {
                 showLoading(false);
             }
         }
 
-        function renderForm() {
-            const { title, description, inputs, defaults } = currentWorkflow;
+        function renderWorkflowForm() {
+            document.getElementById('form-title').textContent = currentWorkflow.title;
+            document.getElementById('form-description').textContent = currentWorkflow.description;
 
-            formTitle.textContent = title;
-            formDescription.textContent = description;
-
-            // Build form fields
-            const fieldsHtml = inputs.map(input => {
-                const defaultValue = defaults[input.name] || '';
+            const form = document.getElementById('workflow-form');
+            form.innerHTML = currentWorkflow.inputs.map(input => {
+                const defaultVal = currentWorkflow.defaults[input.name] || '';
                 const isEmail = input.name.toLowerCase().includes('email');
-                const sourceLabel = input.source.includes('Default') ? 'default' : 'required';
-
                 return `
                     <div class="form-group">
                         <label class="form-label">
                             ${formatLabel(input.name)}
                             ${input.required ? '<span class="required">*</span>' : ''}
-                            <span class="source-badge">${sourceLabel}</span>
+                            <span class="source-badge">${input.source.includes('Default') ? 'default' : 'required'}</span>
                         </label>
-                        <input
-                            type="${isEmail ? 'email' : 'text'}"
-                            name="${input.name}"
-                            class="form-input"
-                            value="${escapeHtml(defaultValue)}"
-                            placeholder="${escapeHtml(input.description)}"
-                            ${input.required && !defaultValue ? 'required' : ''}
-                        />
-                        ${input.description ? `<span class="form-hint">${escapeHtml(input.description)}</span>` : ''}
+                        <input type="${isEmail ? 'email' : 'text'}" name="${input.name}" class="form-input" value="${escapeHtml(defaultVal)}" placeholder="${escapeHtml(input.description)}" ${input.required && !defaultVal ? 'required' : ''}/>
                     </div>
                 `;
-            }).join('');
+            }).join('') + `<button type="submit" class="btn-primary" id="submit-btn">${icons.play}<span>Run Workflow</span></button>`;
 
-            workflowForm.innerHTML = fieldsHtml + `
-                <button type="submit" class="btn-primary" id="submit-btn">
-                    ${icons.play}
-                    <span>Run Workflow</span>
-                </button>
-            `;
-
-            // Reset status
-            statusEl.className = 'status';
+            document.getElementById('status').className = 'status';
         }
 
-        async function handleSubmit(event) {
+        async function handleWorkflowSubmit(event) {
             event.preventDefault();
-
             const formData = new FormData(event.target);
             const inputs = Object.fromEntries(formData.entries());
-
             const submitBtn = document.getElementById('submit-btn');
+            const statusEl = document.getElementById('status');
+
             submitBtn.disabled = true;
             submitBtn.innerHTML = '<div class="spinner"></div><span>Running...</span>';
 
-            statusEl.className = 'status';
-
             try {
-                const result = await runWorkflow(currentWorkflow.id, inputs);
+                const response = await fetch(`${API_BASE}/api/workflows/${currentWorkflow.id}/run`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ inputs })
+                });
+                const data = await response.json();
+                if (!response.ok) throw new Error(data.detail || 'Failed');
 
-                statusIcon.innerHTML = icons.success;
-                statusContent.innerHTML = `
-                    <strong>Workflow completed successfully!</strong>
-                    ${result.result?.recipient ? `Sent to: ${escapeHtml(result.result.recipient)}` : ''}
-                `;
+                document.getElementById('status-icon').innerHTML = icons.success;
+                document.getElementById('status-content').innerHTML = `<strong>Success!</strong>${data.result?.recipient ? ` Sent to: ${escapeHtml(data.result.recipient)}` : ''}`;
                 statusEl.className = 'status success show';
             } catch (error) {
-                statusIcon.innerHTML = icons.error;
-                statusContent.innerHTML = `
-                    <strong>Workflow failed</strong>
-                    ${escapeHtml(error.message)}
-                `;
+                document.getElementById('status-icon').innerHTML = icons.error;
+                document.getElementById('status-content').innerHTML = `<strong>Failed</strong>${escapeHtml(error.message)}`;
                 statusEl.className = 'status error show';
             } finally {
                 submitBtn.disabled = false;
@@ -921,36 +909,197 @@
             }
         }
 
-        // Navigation
-        function showScreen(screen) {
-            const currentScreen = document.querySelector('.screen.active');
-            const nextScreen = screen === 'list' ? screenList : screenForm;
+        function showWorkflowScreen(screen) {
+            document.getElementById('screen-list').classList.toggle('active', screen === 'list');
+            document.getElementById('screen-form').classList.toggle('active', screen === 'form');
+        }
 
-            if (currentScreen === nextScreen) return;
+        // ==================== CHAT ====================
+        function loadChatHistory() {
+            const stored = localStorage.getItem(STORAGE_KEY);
+            chatHistory = stored ? JSON.parse(stored) : [];
+            renderChatHistoryList();
+        }
 
-            currentScreen.classList.add('exit');
-            currentScreen.classList.remove('active');
+        function saveChatHistory() {
+            localStorage.setItem(STORAGE_KEY, JSON.stringify(chatHistory));
+        }
 
-            setTimeout(() => {
-                currentScreen.classList.remove('exit');
-                nextScreen.classList.add('active');
+        function renderChatHistoryList() {
+            const list = document.getElementById('chat-history-list');
+            if (chatHistory.length === 0) {
+                list.innerHTML = `<div class="chat-history-empty">No conversations yet</div>`;
+                return;
+            }
+            list.innerHTML = chatHistory.map(chat => `
+                <div class="chat-history-item ${chat.id === currentChatId ? 'active' : ''}" onclick="loadChat('${chat.id}')">
+                    <div class="chat-history-title">${escapeHtml(chat.title || 'New Chat')}</div>
+                    <div class="chat-history-date">${formatDate(chat.updatedAt)}</div>
+                </div>
+            `).join('');
+        }
 
-                // Reset status when going back to list
-                if (screen === 'list') {
-                    statusEl.className = 'status';
+        function startNewChat() {
+            currentChatId = generateId();
+            const newChat = {
+                id: currentChatId,
+                title: 'New Chat',
+                messages: [],
+                createdAt: Date.now(),
+                updatedAt: Date.now()
+            };
+            chatHistory.unshift(newChat);
+            saveChatHistory();
+            renderChatHistoryList();
+            renderChatMessages([]);
+        }
+
+        function loadChat(chatId) {
+            currentChatId = chatId;
+            const chat = chatHistory.find(c => c.id === chatId);
+            if (chat) {
+                renderChatMessages(chat.messages);
+                renderChatHistoryList();
+            }
+        }
+
+        function renderChatMessages(messages) {
+            const container = document.getElementById('chat-messages');
+            if (messages.length === 0) {
+                container.innerHTML = `
+                    <div class="chat-welcome">
+                        <div class="chat-welcome-icon">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+                        </div>
+                        <h2>BTB AI Assistant</h2>
+                        <p>Ask me anything about your calls, meetings, or business data.</p>
+                    </div>
+                `;
+                return;
+            }
+            container.innerHTML = messages.map(msg => `
+                <div class="message ${msg.role}">
+                    <div class="message-avatar">${msg.role === 'user' ? icons.user : icons.bot}</div>
+                    <div class="message-content"><p>${formatMessageContent(msg.content)}</p></div>
+                </div>
+            `).join('');
+            container.scrollTop = container.scrollHeight;
+        }
+
+        function addMessageToUI(role, content) {
+            const container = document.getElementById('chat-messages');
+            const welcome = container.querySelector('.chat-welcome');
+            if (welcome) welcome.remove();
+
+            const msgEl = document.createElement('div');
+            msgEl.className = `message ${role}`;
+            msgEl.innerHTML = `
+                <div class="message-avatar">${role === 'user' ? icons.user : icons.bot}</div>
+                <div class="message-content"><p>${formatMessageContent(content)}</p></div>
+            `;
+            container.appendChild(msgEl);
+            container.scrollTop = container.scrollHeight;
+        }
+
+        function showTypingIndicator() {
+            const container = document.getElementById('chat-messages');
+            const indicator = document.createElement('div');
+            indicator.className = 'message assistant';
+            indicator.id = 'typing-indicator';
+            indicator.innerHTML = `
+                <div class="message-avatar">${icons.bot}</div>
+                <div class="message-content"><div class="typing-indicator"><span></span><span></span><span></span></div></div>
+            `;
+            container.appendChild(indicator);
+            container.scrollTop = container.scrollHeight;
+        }
+
+        function removeTypingIndicator() {
+            const indicator = document.getElementById('typing-indicator');
+            if (indicator) indicator.remove();
+        }
+
+        async function sendMessage() {
+            const input = document.getElementById('chat-input');
+            const message = input.value.trim();
+            if (!message || isTyping) return;
+
+            // Create chat if needed
+            if (!currentChatId) {
+                startNewChat();
+            }
+
+            // Add user message
+            addMessageToUI('user', message);
+            const chat = chatHistory.find(c => c.id === currentChatId);
+            if (chat) {
+                chat.messages.push({ role: 'user', content: message });
+                if (chat.messages.length === 1) {
+                    chat.title = message.substring(0, 50) + (message.length > 50 ? '...' : '');
                 }
-            }, 300);
+                chat.updatedAt = Date.now();
+                saveChatHistory();
+                renderChatHistoryList();
+            }
+
+            input.value = '';
+            input.style.height = 'auto';
+
+            // Send to n8n webhook
+            isTyping = true;
+            showTypingIndicator();
+            document.getElementById('chat-send-btn').disabled = true;
+
+            try {
+                const response = await fetch(CHAT_WEBHOOK, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        message: message,
+                        chatId: currentChatId,
+                        history: chat?.messages.slice(-10) || []
+                    })
+                });
+
+                const data = await response.json();
+                removeTypingIndicator();
+
+                const assistantMessage = data.output || data.response || data.message || data.text || JSON.stringify(data);
+                addMessageToUI('assistant', assistantMessage);
+
+                if (chat) {
+                    chat.messages.push({ role: 'assistant', content: assistantMessage });
+                    chat.updatedAt = Date.now();
+                    saveChatHistory();
+                }
+            } catch (error) {
+                removeTypingIndicator();
+                addMessageToUI('assistant', 'Sorry, I encountered an error. Please try again.');
+                console.error('Chat error:', error);
+            } finally {
+                isTyping = false;
+                document.getElementById('chat-send-btn').disabled = false;
+            }
         }
 
+        function handleChatKeydown(event) {
+            if (event.key === 'Enter' && !event.shiftKey) {
+                event.preventDefault();
+                sendMessage();
+            }
+        }
+
+        function autoResizeTextarea() {
+            const textarea = document.getElementById('chat-input');
+            textarea.addEventListener('input', () => {
+                textarea.style.height = 'auto';
+                textarea.style.height = Math.min(textarea.scrollHeight, 120) + 'px';
+            });
+        }
+
+        // ==================== UTILITIES ====================
         function showLoading(show) {
-            loadingOverlay.classList.toggle('show', show);
-        }
-
-        // Utilities
-        function formatLabel(name) {
-            return name
-                .replace(/_/g, ' ')
-                .replace(/\b\w/g, c => c.toUpperCase());
+            document.getElementById('loading-overlay').classList.toggle('show', show);
         }
 
         function escapeHtml(text) {
@@ -959,8 +1108,29 @@
             return div.innerHTML;
         }
 
-        // Start app
-        init();
+        function formatLabel(name) {
+            return name.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+        }
+
+        function formatDate(timestamp) {
+            const date = new Date(timestamp);
+            const now = new Date();
+            const diff = now - date;
+
+            if (diff < 60000) return 'Just now';
+            if (diff < 3600000) return `${Math.floor(diff / 60000)}m ago`;
+            if (diff < 86400000) return `${Math.floor(diff / 3600000)}h ago`;
+            if (diff < 604800000) return `${Math.floor(diff / 86400000)}d ago`;
+            return date.toLocaleDateString();
+        }
+
+        function formatMessageContent(content) {
+            return escapeHtml(content).replace(/\n/g, '<br>');
+        }
+
+        function generateId() {
+            return 'chat_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+        }
     </script>
 </body>
 </html>
