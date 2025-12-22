@@ -1,0 +1,966 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>BTB AI | Workflow Launcher</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-void: #050508;
+            --bg-base: #0a0a0f;
+            --bg-elevated: #0f0f16;
+            --bg-card: #1a1a24;
+            --bg-card-hover: #1f1f2c;
+            --border-subtle: #252532;
+            --border-glow: #2d2d3d;
+
+            --accent: #a855f7;
+            --accent-light: #c084fc;
+            --accent-dim: #7c3aed;
+            --accent-glow: rgba(168, 85, 247, 0.15);
+            --accent-glow-strong: rgba(168, 85, 247, 0.35);
+
+            --text-primary: #fafafa;
+            --text-secondary: #a1a1aa;
+            --text-tertiary: #71717a;
+            --text-muted: #52525b;
+
+            --success: #22c55e;
+            --error: #ef4444;
+
+            --font-display: 'Outfit', sans-serif;
+            --font-mono: 'JetBrains Mono', monospace;
+
+            --ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
+            --ease-out-back: cubic-bezier(0.34, 1.56, 0.64, 1);
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        html {
+            font-size: 16px;
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
+        }
+
+        body {
+            font-family: var(--font-display);
+            background: var(--bg-void);
+            color: var(--text-primary);
+            min-height: 100vh;
+            overflow-x: hidden;
+            line-height: 1.6;
+        }
+
+        /* Animated gradient background */
+        .bg-gradient {
+            position: fixed;
+            inset: 0;
+            z-index: -1;
+            overflow: hidden;
+        }
+
+        .bg-gradient::before {
+            content: '';
+            position: absolute;
+            top: -50%;
+            left: -50%;
+            width: 200%;
+            height: 200%;
+            background:
+                radial-gradient(ellipse 80% 50% at 20% 40%, var(--accent-glow) 0%, transparent 50%),
+                radial-gradient(ellipse 60% 40% at 80% 60%, rgba(124, 58, 237, 0.08) 0%, transparent 50%);
+            animation: gradientShift 20s ease-in-out infinite alternate;
+        }
+
+        @keyframes gradientShift {
+            0% { transform: translate(0, 0) rotate(0deg); }
+            100% { transform: translate(-5%, 5%) rotate(3deg); }
+        }
+
+        /* Noise texture overlay */
+        .noise {
+            position: fixed;
+            inset: 0;
+            z-index: -1;
+            opacity: 0.03;
+            pointer-events: none;
+            background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)'/%3E%3C/svg%3E");
+        }
+
+        /* Main container */
+        .app {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 3rem 2rem 4rem;
+            position: relative;
+        }
+
+        /* Header */
+        .header {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            margin-bottom: 4rem;
+            opacity: 0;
+            animation: fadeSlideUp 0.8s var(--ease-out-expo) 0.1s forwards;
+        }
+
+        .logo {
+            width: 52px;
+            height: 52px;
+            border-radius: 14px;
+            object-fit: contain;
+            filter: drop-shadow(0 0 20px var(--accent-glow-strong));
+        }
+
+        .brand {
+            display: flex;
+            flex-direction: column;
+            gap: 0.15rem;
+        }
+
+        .brand-name {
+            font-size: 1.5rem;
+            font-weight: 700;
+            letter-spacing: -0.03em;
+            background: linear-gradient(135deg, var(--text-primary) 0%, var(--text-secondary) 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .brand-tagline {
+            font-size: 0.75rem;
+            font-weight: 500;
+            color: var(--text-tertiary);
+            letter-spacing: 0.15em;
+            text-transform: uppercase;
+        }
+
+        /* Screen transitions */
+        .screen {
+            display: none;
+            opacity: 0;
+        }
+
+        .screen.active {
+            display: block;
+            animation: fadeSlideUp 0.6s var(--ease-out-expo) forwards;
+        }
+
+        .screen.exit {
+            animation: fadeSlideDown 0.4s var(--ease-out-expo) forwards;
+        }
+
+        @keyframes fadeSlideUp {
+            from {
+                opacity: 0;
+                transform: translateY(24px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        @keyframes fadeSlideDown {
+            from {
+                opacity: 1;
+                transform: translateY(0);
+            }
+            to {
+                opacity: 0;
+                transform: translateY(-16px);
+            }
+        }
+
+        /* Section header */
+        .section-header {
+            margin-bottom: 2.5rem;
+        }
+
+        .section-title {
+            font-size: 2rem;
+            font-weight: 600;
+            letter-spacing: -0.03em;
+            margin-bottom: 0.5rem;
+        }
+
+        .section-subtitle {
+            color: var(--text-secondary);
+            font-size: 1.05rem;
+        }
+
+        /* Workflow grid */
+        .workflow-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+            gap: 1.25rem;
+        }
+
+        .workflow-card {
+            position: relative;
+            background: var(--bg-card);
+            border: 1px solid var(--border-subtle);
+            border-radius: 16px;
+            padding: 1.75rem;
+            cursor: pointer;
+            transition: all 0.4s var(--ease-out-expo);
+            overflow: hidden;
+            opacity: 0;
+            animation: cardReveal 0.6s var(--ease-out-expo) forwards;
+        }
+
+        .workflow-card:nth-child(1) { animation-delay: 0.1s; }
+        .workflow-card:nth-child(2) { animation-delay: 0.15s; }
+        .workflow-card:nth-child(3) { animation-delay: 0.2s; }
+        .workflow-card:nth-child(4) { animation-delay: 0.25s; }
+        .workflow-card:nth-child(5) { animation-delay: 0.3s; }
+        .workflow-card:nth-child(6) { animation-delay: 0.35s; }
+
+        @keyframes cardReveal {
+            from {
+                opacity: 0;
+                transform: translateY(20px) scale(0.98);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0) scale(1);
+            }
+        }
+
+        .workflow-card::before {
+            content: '';
+            position: absolute;
+            inset: 0;
+            border-radius: 16px;
+            padding: 1px;
+            background: linear-gradient(135deg, transparent 40%, var(--accent-dim) 100%);
+            -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+            mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+            -webkit-mask-composite: xor;
+            mask-composite: exclude;
+            opacity: 0;
+            transition: opacity 0.4s var(--ease-out-expo);
+        }
+
+        .workflow-card:hover {
+            background: var(--bg-card-hover);
+            border-color: var(--border-glow);
+            transform: translateY(-4px);
+            box-shadow:
+                0 20px 40px -15px rgba(0, 0, 0, 0.5),
+                0 0 0 1px var(--accent-glow);
+        }
+
+        .workflow-card:hover::before {
+            opacity: 1;
+        }
+
+        .card-icon {
+            width: 44px;
+            height: 44px;
+            border-radius: 12px;
+            background: linear-gradient(135deg, var(--accent-dim) 0%, var(--accent) 100%);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-bottom: 1.25rem;
+            box-shadow: 0 8px 24px -8px var(--accent-glow-strong);
+        }
+
+        .card-icon svg {
+            width: 22px;
+            height: 22px;
+            color: white;
+        }
+
+        .card-title {
+            font-size: 1.2rem;
+            font-weight: 600;
+            letter-spacing: -0.02em;
+            margin-bottom: 0.5rem;
+        }
+
+        .card-description {
+            color: var(--text-secondary);
+            font-size: 0.9rem;
+            line-height: 1.55;
+            margin-bottom: 1.25rem;
+            display: -webkit-box;
+            -webkit-line-clamp: 2;
+            -webkit-box-orient: vertical;
+            overflow: hidden;
+        }
+
+        .card-meta {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.35rem;
+            padding: 0.35rem 0.75rem;
+            background: var(--accent-glow);
+            border: 1px solid rgba(168, 85, 247, 0.2);
+            border-radius: 20px;
+            font-size: 0.75rem;
+            font-weight: 500;
+            color: var(--accent-light);
+            font-family: var(--font-mono);
+        }
+
+        .badge svg {
+            width: 12px;
+            height: 12px;
+        }
+
+        /* Empty state */
+        .empty-state {
+            text-align: center;
+            padding: 4rem 2rem;
+            color: var(--text-tertiary);
+        }
+
+        .empty-state-icon {
+            width: 64px;
+            height: 64px;
+            margin: 0 auto 1.5rem;
+            opacity: 0.4;
+        }
+
+        /* Form screen */
+        .form-container {
+            max-width: 640px;
+            margin: 0 auto;
+        }
+
+        .back-button {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.65rem 1rem;
+            background: var(--bg-card);
+            border: 1px solid var(--border-subtle);
+            border-radius: 10px;
+            color: var(--text-secondary);
+            font-family: var(--font-display);
+            font-size: 0.875rem;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.3s var(--ease-out-expo);
+            margin-bottom: 2rem;
+        }
+
+        .back-button:hover {
+            background: var(--bg-card-hover);
+            color: var(--text-primary);
+            border-color: var(--border-glow);
+        }
+
+        .back-button svg {
+            width: 16px;
+            height: 16px;
+            transition: transform 0.3s var(--ease-out-expo);
+        }
+
+        .back-button:hover svg {
+            transform: translateX(-3px);
+        }
+
+        .form-header {
+            margin-bottom: 2.5rem;
+            padding-bottom: 2rem;
+            border-bottom: 1px solid var(--border-subtle);
+        }
+
+        .form-title {
+            font-size: 1.75rem;
+            font-weight: 600;
+            letter-spacing: -0.03em;
+            margin-bottom: 0.5rem;
+        }
+
+        .form-description {
+            color: var(--text-secondary);
+            font-size: 1rem;
+            line-height: 1.6;
+        }
+
+        .form-body {
+            display: flex;
+            flex-direction: column;
+            gap: 1.5rem;
+        }
+
+        .form-group {
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+        }
+
+        .form-label {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 0.875rem;
+            font-weight: 500;
+            color: var(--text-secondary);
+        }
+
+        .form-label .required {
+            color: var(--accent);
+        }
+
+        .form-label .source-badge {
+            font-family: var(--font-mono);
+            font-size: 0.65rem;
+            padding: 0.2rem 0.45rem;
+            background: var(--bg-elevated);
+            border-radius: 4px;
+            color: var(--text-tertiary);
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+
+        .form-input {
+            width: 100%;
+            padding: 0.9rem 1rem;
+            background: var(--bg-base);
+            border: 1px solid var(--border-subtle);
+            border-radius: 10px;
+            color: var(--text-primary);
+            font-family: var(--font-display);
+            font-size: 0.95rem;
+            transition: all 0.3s var(--ease-out-expo);
+        }
+
+        .form-input::placeholder {
+            color: var(--text-muted);
+        }
+
+        .form-input:hover {
+            border-color: var(--border-glow);
+        }
+
+        .form-input:focus {
+            outline: none;
+            border-color: var(--accent);
+            box-shadow: 0 0 0 3px var(--accent-glow);
+        }
+
+        .form-hint {
+            font-size: 0.75rem;
+            color: var(--text-tertiary);
+        }
+
+        /* Buttons */
+        .btn-primary {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.6rem;
+            width: 100%;
+            padding: 1rem 1.5rem;
+            margin-top: 1rem;
+            background: linear-gradient(135deg, var(--accent-dim) 0%, var(--accent) 100%);
+            border: none;
+            border-radius: 12px;
+            color: white;
+            font-family: var(--font-display);
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s var(--ease-out-expo);
+            box-shadow: 0 8px 24px -8px var(--accent-glow-strong);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .btn-primary::before {
+            content: '';
+            position: absolute;
+            inset: 0;
+            background: linear-gradient(135deg, var(--accent) 0%, var(--accent-light) 100%);
+            opacity: 0;
+            transition: opacity 0.3s;
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 12px 32px -8px var(--accent-glow-strong);
+        }
+
+        .btn-primary:hover::before {
+            opacity: 1;
+        }
+
+        .btn-primary:active {
+            transform: translateY(0);
+        }
+
+        .btn-primary:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .btn-primary span,
+        .btn-primary svg {
+            position: relative;
+            z-index: 1;
+        }
+
+        .btn-primary svg {
+            width: 18px;
+            height: 18px;
+        }
+
+        /* Spinner */
+        .spinner {
+            width: 18px;
+            height: 18px;
+            border: 2px solid rgba(255, 255, 255, 0.3);
+            border-top-color: white;
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        /* Status messages */
+        .status {
+            display: none;
+            align-items: flex-start;
+            gap: 0.75rem;
+            padding: 1rem 1.25rem;
+            border-radius: 12px;
+            margin-top: 1.5rem;
+            font-size: 0.9rem;
+            line-height: 1.5;
+            animation: statusReveal 0.4s var(--ease-out-back);
+        }
+
+        @keyframes statusReveal {
+            from {
+                opacity: 0;
+                transform: translateY(-8px) scale(0.98);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0) scale(1);
+            }
+        }
+
+        .status.show {
+            display: flex;
+        }
+
+        .status svg {
+            flex-shrink: 0;
+            width: 20px;
+            height: 20px;
+            margin-top: 1px;
+        }
+
+        .status.success {
+            background: rgba(34, 197, 94, 0.1);
+            border: 1px solid rgba(34, 197, 94, 0.25);
+            color: var(--success);
+        }
+
+        .status.error {
+            background: rgba(239, 68, 68, 0.1);
+            border: 1px solid rgba(239, 68, 68, 0.25);
+            color: var(--error);
+        }
+
+        .status-content strong {
+            display: block;
+            margin-bottom: 0.25rem;
+        }
+
+        /* Loading overlay */
+        .loading-overlay {
+            position: fixed;
+            inset: 0;
+            background: rgba(5, 5, 8, 0.8);
+            backdrop-filter: blur(4px);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+            opacity: 0;
+            visibility: hidden;
+            transition: all 0.3s;
+        }
+
+        .loading-overlay.show {
+            opacity: 1;
+            visibility: visible;
+        }
+
+        .loading-content {
+            text-align: center;
+        }
+
+        .loading-spinner {
+            width: 48px;
+            height: 48px;
+            border: 3px solid var(--border-subtle);
+            border-top-color: var(--accent);
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 1rem;
+        }
+
+        .loading-text {
+            color: var(--text-secondary);
+            font-size: 0.9rem;
+        }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            .app {
+                padding: 2rem 1.25rem 3rem;
+            }
+
+            .header {
+                margin-bottom: 3rem;
+            }
+
+            .section-title {
+                font-size: 1.5rem;
+            }
+
+            .workflow-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .form-title {
+                font-size: 1.4rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="bg-gradient"></div>
+    <div class="noise"></div>
+
+    <div class="app">
+        <!-- Header -->
+        <header class="header">
+            <img src="/assets/logo.png" alt="BTB AI" class="logo" onerror="this.style.display='none'">
+            <div class="brand">
+                <span class="brand-name">BTB AI</span>
+                <span class="brand-tagline">Workflow Launcher</span>
+            </div>
+        </header>
+
+        <!-- Screen 1: Workflow List -->
+        <main id="screen-list" class="screen active">
+            <div class="section-header">
+                <h1 class="section-title">Select a Workflow</h1>
+                <p class="section-subtitle">Choose an automation to configure and run</p>
+            </div>
+            <div id="workflow-grid" class="workflow-grid">
+                <!-- Cards populated by JS -->
+            </div>
+        </main>
+
+        <!-- Screen 2: Workflow Form -->
+        <main id="screen-form" class="screen">
+            <div class="form-container">
+                <button class="back-button" onclick="showScreen('list')">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M19 12H5M12 19l-7-7 7-7"/>
+                    </svg>
+                    Back to Workflows
+                </button>
+
+                <div class="form-header">
+                    <h2 id="form-title" class="form-title"></h2>
+                    <p id="form-description" class="form-description"></p>
+                </div>
+
+                <form id="workflow-form" class="form-body" onsubmit="handleSubmit(event)">
+                    <!-- Fields populated by JS -->
+                </form>
+
+                <div id="status" class="status">
+                    <svg id="status-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></svg>
+                    <div id="status-content" class="status-content"></div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- Loading overlay -->
+    <div id="loading-overlay" class="loading-overlay">
+        <div class="loading-content">
+            <div class="loading-spinner"></div>
+            <p class="loading-text">Loading workflows...</p>
+        </div>
+    </div>
+
+    <script>
+        // Configuration
+        const API_BASE = window.location.origin;
+
+        // State
+        let workflows = [];
+        let currentWorkflow = null;
+
+        // DOM Elements
+        const screenList = document.getElementById('screen-list');
+        const screenForm = document.getElementById('screen-form');
+        const workflowGrid = document.getElementById('workflow-grid');
+        const workflowForm = document.getElementById('workflow-form');
+        const formTitle = document.getElementById('form-title');
+        const formDescription = document.getElementById('form-description');
+        const statusEl = document.getElementById('status');
+        const statusIcon = document.getElementById('status-icon');
+        const statusContent = document.getElementById('status-content');
+        const loadingOverlay = document.getElementById('loading-overlay');
+
+        // Icons
+        const icons = {
+            workflow: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/>
+                <circle cx="9" cy="7" r="4"/>
+                <path d="M22 21v-2a4 4 0 0 0-3-3.87"/>
+                <path d="M16 3.13a4 4 0 0 1 0 7.75"/>
+            </svg>`,
+            inputs: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M4 7h16M4 12h16M4 17h10"/>
+            </svg>`,
+            play: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <polygon points="5 3 19 12 5 21 5 3"/>
+            </svg>`,
+            success: `<path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/>`,
+            error: `<circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/>`,
+            empty: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/>
+                <line x1="9" y1="9" x2="15" y2="15"/>
+                <line x1="15" y1="9" x2="9" y2="15"/>
+            </svg>`
+        };
+
+        // Initialize
+        async function init() {
+            showLoading(true);
+            try {
+                await loadWorkflows();
+                renderWorkflowGrid();
+            } catch (error) {
+                console.error('Failed to load workflows:', error);
+                workflowGrid.innerHTML = `
+                    <div class="empty-state">
+                        <div class="empty-state-icon">${icons.empty}</div>
+                        <p>Failed to load workflows. Make sure the API server is running.</p>
+                    </div>
+                `;
+            } finally {
+                showLoading(false);
+            }
+        }
+
+        // API Functions
+        async function loadWorkflows() {
+            const response = await fetch(`${API_BASE}/api/workflows`);
+            if (!response.ok) throw new Error('Failed to fetch workflows');
+            const data = await response.json();
+            workflows = data.workflows;
+        }
+
+        async function loadWorkflowDetails(id) {
+            const response = await fetch(`${API_BASE}/api/workflows/${id}`);
+            if (!response.ok) throw new Error('Workflow not found');
+            return await response.json();
+        }
+
+        async function runWorkflow(id, inputs) {
+            const response = await fetch(`${API_BASE}/api/workflows/${id}/run`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ inputs })
+            });
+            const data = await response.json();
+            if (!response.ok) throw new Error(data.detail || 'Workflow execution failed');
+            return data;
+        }
+
+        // Render Functions
+        function renderWorkflowGrid() {
+            if (workflows.length === 0) {
+                workflowGrid.innerHTML = `
+                    <div class="empty-state">
+                        <div class="empty-state-icon">${icons.empty}</div>
+                        <p>No workflows available. Add directive files to the directives/ folder.</p>
+                    </div>
+                `;
+                return;
+            }
+
+            workflowGrid.innerHTML = workflows.map(w => `
+                <article class="workflow-card" onclick="selectWorkflow('${w.id}')">
+                    <div class="card-icon">${icons.workflow}</div>
+                    <h3 class="card-title">${escapeHtml(w.title)}</h3>
+                    <p class="card-description">${escapeHtml(w.description)}</p>
+                    <div class="card-meta">
+                        <span class="badge">
+                            ${icons.inputs}
+                            ${w.input_count} input${w.input_count !== 1 ? 's' : ''}
+                        </span>
+                    </div>
+                </article>
+            `).join('');
+        }
+
+        async function selectWorkflow(id) {
+            try {
+                showLoading(true);
+                currentWorkflow = await loadWorkflowDetails(id);
+                renderForm();
+                showScreen('form');
+            } catch (error) {
+                console.error('Failed to load workflow:', error);
+                alert('Failed to load workflow details');
+            } finally {
+                showLoading(false);
+            }
+        }
+
+        function renderForm() {
+            const { title, description, inputs, defaults } = currentWorkflow;
+
+            formTitle.textContent = title;
+            formDescription.textContent = description;
+
+            // Build form fields
+            const fieldsHtml = inputs.map(input => {
+                const defaultValue = defaults[input.name] || '';
+                const isEmail = input.name.toLowerCase().includes('email');
+                const sourceLabel = input.source.includes('Default') ? 'default' : 'required';
+
+                return `
+                    <div class="form-group">
+                        <label class="form-label">
+                            ${formatLabel(input.name)}
+                            ${input.required ? '<span class="required">*</span>' : ''}
+                            <span class="source-badge">${sourceLabel}</span>
+                        </label>
+                        <input
+                            type="${isEmail ? 'email' : 'text'}"
+                            name="${input.name}"
+                            class="form-input"
+                            value="${escapeHtml(defaultValue)}"
+                            placeholder="${escapeHtml(input.description)}"
+                            ${input.required && !defaultValue ? 'required' : ''}
+                        />
+                        ${input.description ? `<span class="form-hint">${escapeHtml(input.description)}</span>` : ''}
+                    </div>
+                `;
+            }).join('');
+
+            workflowForm.innerHTML = fieldsHtml + `
+                <button type="submit" class="btn-primary" id="submit-btn">
+                    ${icons.play}
+                    <span>Run Workflow</span>
+                </button>
+            `;
+
+            // Reset status
+            statusEl.className = 'status';
+        }
+
+        async function handleSubmit(event) {
+            event.preventDefault();
+
+            const formData = new FormData(event.target);
+            const inputs = Object.fromEntries(formData.entries());
+
+            const submitBtn = document.getElementById('submit-btn');
+            submitBtn.disabled = true;
+            submitBtn.innerHTML = '<div class="spinner"></div><span>Running...</span>';
+
+            statusEl.className = 'status';
+
+            try {
+                const result = await runWorkflow(currentWorkflow.id, inputs);
+
+                statusIcon.innerHTML = icons.success;
+                statusContent.innerHTML = `
+                    <strong>Workflow completed successfully!</strong>
+                    ${result.result?.recipient ? `Sent to: ${escapeHtml(result.result.recipient)}` : ''}
+                `;
+                statusEl.className = 'status success show';
+            } catch (error) {
+                statusIcon.innerHTML = icons.error;
+                statusContent.innerHTML = `
+                    <strong>Workflow failed</strong>
+                    ${escapeHtml(error.message)}
+                `;
+                statusEl.className = 'status error show';
+            } finally {
+                submitBtn.disabled = false;
+                submitBtn.innerHTML = `${icons.play}<span>Run Workflow</span>`;
+            }
+        }
+
+        // Navigation
+        function showScreen(screen) {
+            const currentScreen = document.querySelector('.screen.active');
+            const nextScreen = screen === 'list' ? screenList : screenForm;
+
+            if (currentScreen === nextScreen) return;
+
+            currentScreen.classList.add('exit');
+            currentScreen.classList.remove('active');
+
+            setTimeout(() => {
+                currentScreen.classList.remove('exit');
+                nextScreen.classList.add('active');
+
+                // Reset status when going back to list
+                if (screen === 'list') {
+                    statusEl.className = 'status';
+                }
+            }, 300);
+        }
+
+        function showLoading(show) {
+            loadingOverlay.classList.toggle('show', show);
+        }
+
+        // Utilities
+        function formatLabel(name) {
+            return name
+                .replace(/_/g, ' ')
+                .replace(/\b\w/g, c => c.toUpperCase());
+        }
+
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text || '';
+            return div.innerHTML;
+        }
+
+        // Start app
+        init();
+    </script>
+</body>
+</html>
