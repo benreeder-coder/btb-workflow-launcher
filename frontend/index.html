@@ -563,6 +563,11 @@
 
         .message-content p { margin: 0; }
         .message-content p + p { margin-top: 0.75rem; }
+        .message-content strong { font-weight: 600; }
+        .message-content em { font-style: italic; }
+        .message-content ul { margin: 0.4em 0; padding-left: 0; }
+        .message-content li { margin: 0.2em 0; }
+        .message-content blockquote { margin: 0.5em 0; }
 
         .typing-indicator {
             display: flex;
@@ -1125,7 +1130,43 @@
         }
 
         function formatMessageContent(content) {
-            return escapeHtml(content).replace(/\n/g, '<br>');
+            // Simple markdown to HTML conversion
+            let html = escapeHtml(content);
+
+            // Bold: **text** or __text__
+            html = html.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
+            html = html.replace(/__(.+?)__/g, '<strong>$1</strong>');
+
+            // Italic: *text* or _text_ (but not inside words)
+            html = html.replace(/(?<!\w)\*([^*]+?)\*(?!\w)/g, '<em>$1</em>');
+            html = html.replace(/(?<!\w)_([^_]+?)_(?!\w)/g, '<em>$1</em>');
+
+            // Inline code: `code`
+            html = html.replace(/`([^`]+?)`/g, '<code style="background: var(--bg-base); padding: 0.15em 0.4em; border-radius: 4px; font-family: var(--font-mono); font-size: 0.85em;">$1</code>');
+
+            // Blockquotes: > text (at start of line)
+            html = html.replace(/^&gt;\s*(.+)$/gm, '<blockquote style="border-left: 3px solid var(--accent); padding-left: 0.75em; margin: 0.5em 0; color: var(--text-secondary); font-style: italic;">$1</blockquote>');
+
+            // Bullet lists: - item or * item
+            html = html.replace(/^[-*]\s+(.+)$/gm, '<li style="margin-left: 1.25em; list-style: disc;">$1</li>');
+
+            // Wrap consecutive <li> in <ul>
+            html = html.replace(/(<li[^>]*>.*?<\/li>\n?)+/g, '<ul style="margin: 0.5em 0; padding: 0;">$&</ul>');
+
+            // Headers: ## text
+            html = html.replace(/^###\s+(.+)$/gm, '<strong style="font-size: 0.95em;">$1</strong>');
+            html = html.replace(/^##\s+(.+)$/gm, '<strong style="font-size: 1em;">$1</strong>');
+            html = html.replace(/^#\s+(.+)$/gm, '<strong style="font-size: 1.1em;">$1</strong>');
+
+            // Line breaks
+            html = html.replace(/\n/g, '<br>');
+
+            // Clean up double <br> from list items
+            html = html.replace(/<\/li><br>/g, '</li>');
+            html = html.replace(/<\/ul><br>/g, '</ul>');
+            html = html.replace(/<\/blockquote><br>/g, '</blockquote>');
+
+            return html;
         }
 
         function generateId() {
