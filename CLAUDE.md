@@ -58,10 +58,214 @@ Errors are learning opportunities. When something breaks:
 - `.tmp/` - All intermediate files (dossiers, scraped data, temp exports). Never commit, always regenerated.
 - `execution/` - Python scripts (the deterministic tools)
 - `directives/` - SOPs in Markdown (the instruction set)
+- `frontend/` - Web UI for workflow launcher dashboard
 - `.env` - Environment variables and API keys
 - `credentials.json`, `token.json` - Google OAuth credentials (required files, in `.gitignore`)
 
 **Key principle:** Local files are only for processing. Deliverables live in cloud services (Google Sheets, Slides, etc.) where the user can access them. Everything in `.tmp/` can be deleted and regenerated.
+
+## Building New Workflows
+
+When creating a new workflow, follow this exact process to ensure it works in both CLI and the web UI.
+
+### Step 1: Create the Directive
+
+Create a new markdown file in `directives/` with this exact structure:
+
+```markdown
+# Workflow Title
+
+One-sentence description of what this workflow does.
+
+## Trigger
+
+User says: "trigger phrase with [variable1] and [variable2]"
+
+Examples:
+- "example trigger phrase"
+
+## Inputs
+
+| Input | Required | Source | Description |
+|-------|----------|--------|-------------|
+| input_name | Yes | Parsed from trigger | What this input is for |
+| another_input | Yes | Default | Another input with a default value |
+| optional_input | No | Default | Optional input |
+
+## Defaults
+
+| Field | Value |
+|-------|-------|
+| another_input | Default value here |
+| optional_input | Optional default |
+
+## Tools/Scripts
+
+**Primary script:** `execution/your_script.py`
+
+## Execution Flow
+
+1. **Step one** - Description
+2. **Step two** - Description
+3. **Step three** - Description
+
+## Script Usage
+
+```bash
+python execution/your_script.py \
+  --arg1 "value1" \
+  --arg2 "value2" \
+  --vars '{"key": "value"}'
+```
+
+## Outputs
+
+- What the workflow returns on success
+
+## Edge Cases
+
+| Scenario | Handling |
+|----------|----------|
+| Error case | How to handle it |
+```
+
+### Step 2: Create the Execution Script
+
+Create a Python script in `execution/` that:
+1. Uses argparse for CLI arguments
+2. Returns clear success/error messages
+3. Handles errors gracefully
+
+Example pattern:
+```python
+#!/usr/bin/env python3
+import argparse
+import json
+import sys
+
+def main():
+    parser = argparse.ArgumentParser(description='Your script description')
+    parser.add_argument('--input1', required=True, help='First input')
+    parser.add_argument('--vars', required=True, help='JSON object with variables')
+    args = parser.parse_args()
+
+    variables = json.loads(args.vars)
+
+    # Do the work
+    result = do_something(args.input1, variables)
+
+    print(f"Success! Result: {result}")
+
+if __name__ == '__main__':
+    main()
+```
+
+### Step 3: Register in API Server
+
+Add the workflow execution logic to `execution/api_server.py`:
+
+1. Add a handler function:
+```python
+def execute_your_workflow(inputs: dict) -> dict:
+    vars_dict = {
+        "key1": inputs.get("input_name", ""),
+        "key2": inputs.get("another_input", "default"),
+    }
+
+    cmd = [
+        sys.executable,
+        str(PROJECT_ROOT / "execution" / "your_script.py"),
+        "--input1", inputs.get("input_name", ""),
+        "--vars", json.dumps(vars_dict)
+    ]
+
+    result = subprocess.run(cmd, capture_output=True, text=True, cwd=str(PROJECT_ROOT))
+
+    if result.returncode != 0:
+        raise RuntimeError(f"Script failed: {result.stderr}")
+
+    return {"output": result.stdout}
+```
+
+2. Register it in `execute_workflow()`:
+```python
+def execute_workflow(workflow: dict, inputs: dict) -> dict:
+    workflow_id = workflow["id"]
+
+    if workflow_id == "onboard_new_user":
+        return execute_onboard_new_user(inputs)
+
+    if workflow_id == "your_workflow_name":  # Add this
+        return execute_your_workflow(inputs)
+
+    # ... rest of function
+```
+
+### Step 4: Test Locally
+
+```bash
+# Start the server
+python -m uvicorn execution.api_server:app --reload --port 8000
+
+# Open browser to http://localhost:8000
+# Your new workflow should appear in the grid
+```
+
+### Step 5: Commit and Deploy
+
+```bash
+git add directives/your_workflow.md execution/your_script.py execution/api_server.py
+git commit -m "Add your_workflow workflow"
+git push
+
+# If deployed to Railway, it auto-deploys on push
+```
+
+## Frontend Dashboard
+
+The workflow launcher dashboard (`frontend/index.html`) automatically:
+- Scans `directives/` for available workflows
+- Parses markdown to extract inputs and defaults
+- Generates dynamic forms with pre-filled defaults
+- Executes workflows via the API
+
+**To run locally:**
+```bash
+python -m uvicorn execution.api_server:app --reload --port 8000
+# Open http://localhost:8000
+```
+
+**Key files:**
+- `execution/api_server.py` - FastAPI backend serving workflows + frontend
+- `execution/directive_parser.py` - Parses directive markdown into JSON
+- `frontend/index.html` - Single-page app with dark purple theme
+
+## Deployment (Railway)
+
+The app is configured for Railway deployment:
+
+**To deploy:**
+1. Install Railway CLI: `npm install -g @railway/cli`
+2. Login: `railway login`
+3. Initialize project: `railway init`
+4. Deploy: `railway up`
+
+**Files:**
+- `Procfile` - Tells Railway how to start the app
+- `railway.json` - Railway configuration
+- `requirements.txt` - Python dependencies
+
+**Environment variables needed in Railway:**
+- Copy contents of `credentials.json` to `GOOGLE_CREDENTIALS` env var
+- Set any other secrets from `.env`
+
+**Note:** For Gmail workflows to work in production, you'll need to:
+1. Use a service account OR
+2. Store OAuth tokens securely (more complex)
+
+## GitHub Repository
+
+**Repo:** https://github.com/benreeder-coder/btb-workflow-launcher
 
 ## Cloud Webhooks (Modal)
 

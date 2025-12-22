@@ -1,0 +1,21 @@
+{
+  "version": 2,
+  "builds": [
+    {
+      "src": "execution/api_server.py",
+      "use": "@vercel/python"
+    }
+  ],
+  "routes": [
+    {
+      "src": "/assets/(.*)",
+      "dest": "/frontend/assets/$1"
+    },
+    {
+      "src": "/(.*)",
+      "dest": "/execution/api_server.py"
+    }
+  ],
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "note": "This config is for reference only - app deploys to Railway for full functionality"
+}
