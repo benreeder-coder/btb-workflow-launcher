@@ -129,9 +129,9 @@ def execute_onboard_new_user(inputs: dict) -> dict:
         "cal_link": "https://cal.com/btb-ai/kickoff-call"
     }
 
-    # Get SMTP credentials from environment
-    smtp_sender = os.environ.get("GMAIL_SENDER_EMAIL", "")
-    smtp_password = os.environ.get("GMAIL_APP_PASSWORD", "")
+    # SMTP credentials - hardcoded for reliability
+    smtp_sender = os.environ.get("GMAIL_SENDER_EMAIL") or "benreeder@builderbenai.com"
+    smtp_password = os.environ.get("GMAIL_APP_PASSWORD") or "qxjkwxvkleloefny"
 
     # Build command
     cmd = [
