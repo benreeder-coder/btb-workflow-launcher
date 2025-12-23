@@ -9,6 +9,7 @@ FastAPI backend that:
 """
 
 import json
+import os
 import subprocess
 import sys
 from pathlib import Path
@@ -139,12 +140,13 @@ def execute_onboard_new_user(inputs: dict) -> dict:
         "--vars", json.dumps(vars_dict)
     ]
 
-    # Execute
+    # Execute (pass environment variables for SMTP auth)
     result = subprocess.run(
         cmd,
         capture_output=True,
         text=True,
-        cwd=str(PROJECT_ROOT)
+        cwd=str(PROJECT_ROOT),
+        env=os.environ.copy()
     )
 
     if result.returncode != 0:
