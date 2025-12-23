@@ -64,10 +64,19 @@ def send_email_smtp(sender_email: str, app_password: str, to: str, to_name: str,
     message.attach(MIMEText(plain_text, 'plain'))
     message.attach(MIMEText(html_body, 'html'))
 
-    # Connect to Gmail SMTP
-    with smtplib.SMTP_SSL('smtp.gmail.com', 465) as server:
+    # Try port 587 with STARTTLS first (works on more cloud platforms)
+    # Fall back to port 465 with SSL if that fails
+    try:
+        server = smtplib.SMTP('smtp.gmail.com', 587, timeout=10)
+        server.starttls()
         server.login(sender_email, app_password)
         server.send_message(message)
+        server.quit()
+    except Exception as e:
+        print(f"Port 587 failed ({e}), trying port 465...", file=sys.stderr)
+        with smtplib.SMTP_SSL('smtp.gmail.com', 465, timeout=10) as server:
+            server.login(sender_email, app_password)
+            server.send_message(message)
 
     return {'id': 'smtp', 'threadId': 'smtp'}
 

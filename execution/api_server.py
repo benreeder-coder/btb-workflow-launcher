@@ -150,14 +150,18 @@ def execute_onboard_new_user(inputs: dict) -> dict:
     if smtp_password:
         cmd.extend(["--smtp-password", smtp_password])
 
-    # Execute (pass environment variables for SMTP auth)
-    result = subprocess.run(
-        cmd,
-        capture_output=True,
-        text=True,
-        cwd=str(PROJECT_ROOT),
-        env=os.environ.copy()
-    )
+    # Execute with timeout (30 seconds max)
+    try:
+        result = subprocess.run(
+            cmd,
+            capture_output=True,
+            text=True,
+            cwd=str(PROJECT_ROOT),
+            env=os.environ.copy(),
+            timeout=30
+        )
+    except subprocess.TimeoutExpired:
+        raise RuntimeError("Script timed out after 30 seconds - SMTP connection may be blocked")
 
     if result.returncode != 0:
         raise RuntimeError(f"Script failed: {result.stderr}")
