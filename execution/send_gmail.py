@@ -1,16 +1,20 @@
 #!/usr/bin/env python3
 """
-Gmail sender using OAuth2 authentication.
+Gmail sender with multiple authentication methods.
 
 Usage:
     python send_gmail.py --to EMAIL --to-name NAME --subject SUBJ --template TMPL --vars JSON
 
-Requirements:
-    pip install google-auth google-auth-oauthlib google-auth-httplib2 google-api-python-client
+Authentication Priority (first match wins):
+    1. SMTP with App Password (simplest, never expires)
+       - Env: GMAIL_SENDER_EMAIL + GMAIL_APP_PASSWORD
 
-Environment Variables (for cloud deployment):
-    GOOGLE_TOKEN - JSON string of OAuth token (from token.json)
-    GOOGLE_CREDENTIALS - JSON string of OAuth credentials (from credentials.json)
+    2. Service Account (never expires - for Google Workspace admins)
+       - File: service-account.json OR Env: GOOGLE_SERVICE_ACCOUNT
+       - Requires: GMAIL_SENDER_EMAIL
+
+    3. OAuth2 Token (may expire after ~6 months)
+       - File: token.json OR Env: GOOGLE_TOKEN
 """
 
 import argparse
@@ -18,22 +22,25 @@ import base64
 import json
 import os
 import re
+import smtplib
 import sys
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 from pathlib import Path
 
-from google.auth.transport.requests import Request
-from google.oauth2.credentials import Credentials
-from google_auth_oauthlib.flow import InstalledAppFlow
-from googleapiclient.discovery import build
-from googleapiclient.errors import HttpError
-
-# OAuth scope for sending emails
-SCOPES = ['https://www.googleapis.com/auth/gmail.send']
+# Lazy imports for Google libraries (only needed for OAuth/Service Account)
+def _import_google_libs():
+    global Request, Credentials, service_account, InstalledAppFlow, build, HttpError
+    from google.auth.transport.requests import Request
+    from google.oauth2.credentials import Credentials
+    from google.oauth2 import service_account
+    from google_auth_oauthlib.flow import InstalledAppFlow
+    from googleapiclient.discovery import build
+    from googleapiclient.errors import HttpError
 
 # Paths relative to project root
 PROJECT_ROOT = Path(__file__).parent.parent
+SERVICE_ACCOUNT_FILE = PROJECT_ROOT / 'service-account.json'
 CREDENTIALS_FILE = PROJECT_ROOT / 'credentials.json'
 TOKEN_FILE = PROJECT_ROOT / 'token.json'
 TEMPLATES_DIR = Path(__file__).parent / 'templates'
@@ -41,14 +48,67 @@ TEMPLATES_DIR = Path(__file__).parent / 'templates'
 # Default logo URL
 DEFAULT_LOGO_URL = "https://i.imgur.com/EeWMfvf.png"
 
+# OAuth scope for sending emails (only used for OAuth/Service Account methods)
+SCOPES = ['https://www.googleapis.com/auth/gmail.send']
 
-def get_gmail_service():
-    """Authenticate and return Gmail API service.
 
-    Supports two modes:
-    1. File-based: Uses credentials.json and token.json files (local development)
-    2. Environment-based: Uses GOOGLE_TOKEN env var (cloud deployment)
+def send_email_smtp(sender_email: str, app_password: str, to: str, to_name: str, subject: str, html_body: str) -> dict:
+    """Send email via SMTP with App Password. Simplest method, never expires."""
+    message = MIMEMultipart('alternative')
+    message['From'] = sender_email
+    message['To'] = f'{to_name} <{to}>'
+    message['Subject'] = subject
+
+    # Plain text fallback
+    plain_text = html_to_plain_text(html_body)
+    message.attach(MIMEText(plain_text, 'plain'))
+    message.attach(MIMEText(html_body, 'html'))
+
+    # Connect to Gmail SMTP
+    with smtplib.SMTP_SSL('smtp.gmail.com', 465) as server:
+        server.login(sender_email, app_password)
+        server.send_message(message)
+
+    return {'id': 'smtp', 'threadId': 'smtp'}
+
+
+def get_gmail_service_with_service_account(sender_email: str):
+    """Authenticate using Service Account with domain-wide delegation.
+
+    This method never expires and is recommended for Google Workspace.
     """
+    _import_google_libs()
+    sa_creds = None
+
+    # Try environment variable first
+    sa_json = os.environ.get('GOOGLE_SERVICE_ACCOUNT')
+    if sa_json:
+        try:
+            sa_info = json.loads(sa_json)
+            sa_creds = service_account.Credentials.from_service_account_info(
+                sa_info, scopes=SCOPES
+            )
+        except (json.JSONDecodeError, ValueError) as e:
+            print(f"Warning: Invalid GOOGLE_SERVICE_ACCOUNT env var: {e}", file=sys.stderr)
+            sa_creds = None
+
+    # Fall back to file
+    if not sa_creds and SERVICE_ACCOUNT_FILE.exists():
+        sa_creds = service_account.Credentials.from_service_account_file(
+            str(SERVICE_ACCOUNT_FILE), scopes=SCOPES
+        )
+
+    if sa_creds:
+        # Delegate to the sender's email (impersonate the user)
+        delegated_creds = sa_creds.with_subject(sender_email)
+        return build('gmail', 'v1', credentials=delegated_creds)
+
+    return None
+
+
+def get_gmail_service_with_oauth():
+    """Authenticate using OAuth2 (legacy method - tokens may expire)."""
+    _import_google_libs()
     creds = None
 
     # Try environment variable first (for cloud deployment)
@@ -69,40 +129,78 @@ def get_gmail_service():
     if not creds or not creds.valid:
         if creds and creds.expired and creds.refresh_token:
             creds.refresh(Request())
-            # Update env-based token if that's what we're using
-            if google_token:
+            # Save refreshed token
+            if not google_token:
+                with open(TOKEN_FILE, 'w') as token:
+                    token.write(creds.to_json())
+            else:
                 print("Note: Token was refreshed. Update GOOGLE_TOKEN env var with new token.", file=sys.stderr)
         else:
             # Need to do initial OAuth flow - requires credentials.json
             google_creds = os.environ.get('GOOGLE_CREDENTIALS')
 
             if google_creds:
-                # Use credentials from environment
                 try:
                     creds_data = json.loads(google_creds)
                     flow = InstalledAppFlow.from_client_config(creds_data, SCOPES)
                     creds = flow.run_local_server(port=0)
                 except (json.JSONDecodeError, ValueError) as e:
                     print(f"ERROR: Invalid GOOGLE_CREDENTIALS env var: {e}", file=sys.stderr)
-                    sys.exit(1)
+                    return None
             elif CREDENTIALS_FILE.exists():
-                # Use credentials from file
                 flow = InstalledAppFlow.from_client_secrets_file(
                     str(CREDENTIALS_FILE), SCOPES
                 )
                 creds = flow.run_local_server(port=0)
             else:
-                print("ERROR: No valid credentials found.", file=sys.stderr)
-                print("For local dev: Place credentials.json in project root", file=sys.stderr)
-                print("For cloud: Set GOOGLE_TOKEN env var with token.json contents", file=sys.stderr)
-                sys.exit(1)
+                return None
 
-        # Save token for future use (file-based only)
-        if not google_token:
-            with open(TOKEN_FILE, 'w') as token:
-                token.write(creds.to_json())
+            # Save token for future use (file-based only)
+            if not google_token and creds:
+                with open(TOKEN_FILE, 'w') as token:
+                    token.write(creds.to_json())
 
-    return build('gmail', 'v1', credentials=creds)
+    if creds and creds.valid:
+        return build('gmail', 'v1', credentials=creds)
+
+    return None
+
+
+def get_gmail_service(sender_email: str = None):
+    """Get Gmail service using best available authentication method.
+
+    Priority:
+    1. Service Account (never expires) - requires sender_email for delegation
+    2. OAuth2 (may expire)
+    """
+    # Get sender email from arg, env, or None
+    sender = sender_email or os.environ.get('GMAIL_SENDER_EMAIL')
+
+    # Try Service Account first (recommended - never expires)
+    if sender:
+        service = get_gmail_service_with_service_account(sender)
+        if service:
+            print(f"Authenticated via Service Account (delegating to {sender})", file=sys.stderr)
+            return service
+
+    # Fall back to OAuth2
+    service = get_gmail_service_with_oauth()
+    if service:
+        print("Authenticated via OAuth2", file=sys.stderr)
+        return service
+
+    # No valid auth method found
+    print("ERROR: No valid credentials found.", file=sys.stderr)
+    print("", file=sys.stderr)
+    print("Option 1 - Service Account (recommended, never expires):", file=sys.stderr)
+    print("  - Place service-account.json in project root", file=sys.stderr)
+    print("  - Set GMAIL_SENDER_EMAIL env var to your email", file=sys.stderr)
+    print("  - Or use --sender flag", file=sys.stderr)
+    print("", file=sys.stderr)
+    print("Option 2 - OAuth2 (tokens may expire):", file=sys.stderr)
+    print("  - Place credentials.json in project root", file=sys.stderr)
+    print("  - Run once locally to generate token.json", file=sys.stderr)
+    sys.exit(1)
 
 
 def load_template(template_name: str) -> str:
@@ -153,6 +251,7 @@ def create_message(to: str, to_name: str, subject: str, html_body: str) -> dict:
 
 def send_email(service, message: dict) -> dict:
     """Send email via Gmail API."""
+    _import_google_libs()
     try:
         result = service.users().messages().send(
             userId='me',
@@ -171,6 +270,7 @@ def main():
     parser.add_argument('--subject', required=True, help='Email subject')
     parser.add_argument('--template', required=True, help='Template name (without _email.html)')
     parser.add_argument('--vars', required=True, help='JSON object with template variables')
+    parser.add_argument('--sender', help='Sender email (required for Service Account auth, or set GMAIL_SENDER_EMAIL env var)')
 
     args = parser.parse_args()
 
@@ -194,8 +294,23 @@ def main():
         print(f"Template error: {e}", file=sys.stderr)
         sys.exit(1)
 
-    # Authenticate and send
-    service = get_gmail_service()
+    # Check for SMTP credentials first (simplest, recommended)
+    sender_email = args.sender or os.environ.get('GMAIL_SENDER_EMAIL')
+    app_password = os.environ.get('GMAIL_APP_PASSWORD')
+
+    if sender_email and app_password:
+        # Use SMTP - simplest method, never expires
+        print(f"Sending via SMTP as {sender_email}...", file=sys.stderr)
+        try:
+            result = send_email_smtp(sender_email, app_password, args.to, args.to_name, subject, html_body)
+            print(f"Email sent successfully via SMTP!")
+            return
+        except Exception as e:
+            print(f"SMTP failed: {e}", file=sys.stderr)
+            print("Falling back to API methods...", file=sys.stderr)
+
+    # Fall back to API methods (OAuth/Service Account)
+    service = get_gmail_service(sender_email=args.sender)
     message = create_message(args.to, args.to_name, subject, html_body)
     result = send_email(service, message)
 

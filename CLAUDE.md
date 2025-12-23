@@ -1,4 +1,29 @@
 
+# CLAUDE.md
+
+This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+
+## Quick Reference
+
+### Common Commands
+```bash
+# Start local dev server
+python -m uvicorn execution.api_server:app --reload --port 8000
+
+# Deploy to Railway (auto-deploys on push)
+git push origin main
+
+# Manual Railway deploy
+railway up
+```
+
+### Key URLs
+- **Local:** http://localhost:8000
+- **Production:** https://web-production-42e73.up.railway.app/
+- **Repo:** https://github.com/benreeder-coder/btb-workflow-launcher
+
+---
+
 # Agent Instructions
 
 > This file is mirrored across CLAUDE.md, AGENTS.md, and GEMINI.md so the same instructions load in any AI environment.
