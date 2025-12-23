@@ -118,9 +118,18 @@ def execute_workflow(workflow: dict, inputs: dict) -> dict:
 
 
 def execute_onboard_new_user(inputs: dict) -> dict:
-    """Execute the onboarding email workflow."""
-    # Build template variables
-    vars_dict = {
+    """Execute the onboarding email workflow via n8n webhook."""
+    import urllib.request
+    import urllib.error
+
+    # n8n webhook URL
+    webhook_url = "https://breeder80.app.n8n.cloud/webhook/btb-onboard"
+
+    # Build payload for n8n
+    payload = {
+        "to": inputs.get("recipient_email", ""),
+        "to_name": inputs.get("recipient_name", ""),
+        "subject": f"Welcome to {inputs.get('company_name', 'BTB AI')} - Let's Schedule Your Kickoff!",
         "recipient_name": inputs.get("recipient_name", ""),
         "company_name": inputs.get("company_name", "BTB AI"),
         "company_description": inputs.get("company_description", "We build AI-powered automation solutions for businesses"),
@@ -129,48 +138,23 @@ def execute_onboard_new_user(inputs: dict) -> dict:
         "cal_link": "https://cal.com/btb-ai/kickoff-call"
     }
 
-    # SMTP credentials - hardcoded for reliability
-    smtp_sender = os.environ.get("GMAIL_SENDER_EMAIL") or "benreeder@builderbenai.com"
-    smtp_password = os.environ.get("GMAIL_APP_PASSWORD") or "qxjkwxvkleloefny"
+    # Send to n8n webhook
+    data = json.dumps(payload).encode('utf-8')
+    req = urllib.request.Request(webhook_url, data=data, method='POST')
+    req.add_header('Content-Type', 'application/json')
 
-    # Build command
-    cmd = [
-        sys.executable,
-        str(PROJECT_ROOT / "execution" / "send_gmail.py"),
-        "--to", inputs.get("recipient_email", ""),
-        "--to-name", inputs.get("recipient_name", ""),
-        "--subject", f"Welcome to {vars_dict['company_name']} - Let's Schedule Your Kickoff!",
-        "--template", "onboarding",
-        "--vars", json.dumps(vars_dict)
-    ]
-
-    # Add SMTP credentials if available
-    if smtp_sender:
-        cmd.extend(["--sender", smtp_sender])
-    if smtp_password:
-        cmd.extend(["--smtp-password", smtp_password])
-
-    # Execute with timeout (30 seconds max)
     try:
-        result = subprocess.run(
-            cmd,
-            capture_output=True,
-            text=True,
-            cwd=str(PROJECT_ROOT),
-            env=os.environ.copy(),
-            timeout=30
-        )
-    except subprocess.TimeoutExpired:
-        raise RuntimeError("Script timed out after 30 seconds - SMTP connection may be blocked")
-
-    if result.returncode != 0:
-        raise RuntimeError(f"Script failed: {result.stderr}")
-
-    return {
-        "output": result.stdout,
-        "recipient": inputs.get("recipient_email", ""),
-        "recipient_name": inputs.get("recipient_name", "")
-    }
+        with urllib.request.urlopen(req, timeout=30) as response:
+            result = response.read().decode('utf-8')
+            return {
+                "output": f"Email triggered via n8n: {result}",
+                "recipient": inputs.get("recipient_email", ""),
+                "recipient_name": inputs.get("recipient_name", "")
+            }
+    except urllib.error.HTTPError as e:
+        raise RuntimeError(f"n8n webhook error {e.code}: {e.read().decode('utf-8')}")
+    except urllib.error.URLError as e:
+        raise RuntimeError(f"n8n webhook connection error: {e.reason}")
 
 
 def execute_generic_script(workflow: dict, inputs: dict) -> dict:
