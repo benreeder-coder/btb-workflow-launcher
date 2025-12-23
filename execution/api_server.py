@@ -129,6 +129,10 @@ def execute_onboard_new_user(inputs: dict) -> dict:
         "cal_link": "https://cal.com/btb-ai/kickoff-call"
     }
 
+    # Get SMTP credentials from environment
+    smtp_sender = os.environ.get("GMAIL_SENDER_EMAIL", "")
+    smtp_password = os.environ.get("GMAIL_APP_PASSWORD", "")
+
     # Build command
     cmd = [
         sys.executable,
@@ -139,6 +143,12 @@ def execute_onboard_new_user(inputs: dict) -> dict:
         "--template", "onboarding",
         "--vars", json.dumps(vars_dict)
     ]
+
+    # Add SMTP credentials if available
+    if smtp_sender:
+        cmd.extend(["--sender", smtp_sender])
+    if smtp_password:
+        cmd.extend(["--smtp-password", smtp_password])
 
     # Execute (pass environment variables for SMTP auth)
     result = subprocess.run(

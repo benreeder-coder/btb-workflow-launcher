@@ -271,6 +271,7 @@ def main():
     parser.add_argument('--template', required=True, help='Template name (without _email.html)')
     parser.add_argument('--vars', required=True, help='JSON object with template variables')
     parser.add_argument('--sender', help='Sender email (required for Service Account auth, or set GMAIL_SENDER_EMAIL env var)')
+    parser.add_argument('--smtp-password', help='SMTP App Password (or set GMAIL_APP_PASSWORD env var)')
 
     args = parser.parse_args()
 
@@ -296,7 +297,7 @@ def main():
 
     # Check for SMTP credentials first (simplest, recommended)
     sender_email = args.sender or os.environ.get('GMAIL_SENDER_EMAIL')
-    app_password = os.environ.get('GMAIL_APP_PASSWORD')
+    app_password = args.smtp_password or os.environ.get('GMAIL_APP_PASSWORD')
 
     if sender_email and app_password:
         # Use SMTP - simplest method, never expires
