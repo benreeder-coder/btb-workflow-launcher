@@ -1,0 +1,12 @@
+{
+  "permissions": {
+    "allow": [
+      "mcp__plugin_context7_context7__resolve-library-id",
+      "mcp__plugin_context7_context7__get-library-docs",
+      "Bash(git add:*)",
+      "Bash(git commit -m \"$\\(cat <<''EOF''\nAdd Client Hub - task management system with Supabase\n\n- New Client Hub tab with 9 views \\(Today, Inbox, Pending, Overdue, Upcoming, Completed, Clients, Calendar, Settings\\)\n- Supabase Postgres backend with 6 tables\n- Task ranking algorithm for daily prioritization\n- Webhook endpoints for n8n integration \\(tasks, calendar, digest\\)\n- Quick-add syntax parsing \\(@client, p1, due:tomorrow, #morning, ~30m\\)\n- Recurring task support with RRULE\n- Full-text search\n- Activity logging for audit trails\n\n🤖 Generated with [Claude Code]\\(https://claude.com/claude-code\\)\n\nCo-Authored-By: Claude Opus 4.5 <noreply@anthropic.com>\nEOF\n\\)\")",
+      "Bash(git push:*)"
+    ]
+  },
+  "outputStyle": "default"
+}

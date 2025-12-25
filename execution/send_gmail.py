@@ -1,19 +1,19 @@
 #!/usr/bin/env python3
 """
-Gmail sender with multiple authentication methods.
+Email sender with multiple authentication methods.
 
 Usage:
     python send_gmail.py --to EMAIL --to-name NAME --subject SUBJ --template TMPL --vars JSON
 
 Authentication Priority (first match wins):
-    1. SMTP with App Password (simplest, never expires)
+    1. Resend API (recommended - works everywhere, never expires)
+       - Env: RESEND_API_KEY
+       - Env: GMAIL_SENDER_EMAIL (the from address)
+
+    2. SMTP with App Password
        - Env: GMAIL_SENDER_EMAIL + GMAIL_APP_PASSWORD
 
-    2. Service Account (never expires - for Google Workspace admins)
-       - File: service-account.json OR Env: GOOGLE_SERVICE_ACCOUNT
-       - Requires: GMAIL_SENDER_EMAIL
-
-    3. OAuth2 Token (may expire after ~6 months)
+    3. OAuth2 Token (may expire)
        - File: token.json OR Env: GOOGLE_TOKEN
 """
 
@@ -24,6 +24,8 @@ import os
 import re
 import smtplib
 import sys
+import urllib.request
+import urllib.error
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 from pathlib import Path
@@ -50,6 +52,33 @@ DEFAULT_LOGO_URL = "https://i.imgur.com/EeWMfvf.png"
 
 # OAuth scope for sending emails (only used for OAuth/Service Account methods)
 SCOPES = ['https://www.googleapis.com/auth/gmail.send']
+
+# Resend API key - hardcoded for reliability
+RESEND_API_KEY = "re_4txvUXgd_GoJ6WUZ5fwpy3t3imHCyUfbf"
+
+
+def send_email_resend(api_key: str, sender_email: str, to: str, to_name: str, subject: str, html_body: str) -> dict:
+    """Send email via Resend API. Works everywhere, never expires."""
+    url = "https://api.resend.com/emails"
+
+    data = json.dumps({
+        "from": sender_email,
+        "to": [f"{to_name} <{to}>"],
+        "subject": subject,
+        "html": html_body
+    }).encode('utf-8')
+
+    req = urllib.request.Request(url, data=data, method='POST')
+    req.add_header('Authorization', f'Bearer {api_key}')
+    req.add_header('Content-Type', 'application/json')
+
+    try:
+        with urllib.request.urlopen(req, timeout=15) as response:
+            result = json.loads(response.read().decode('utf-8'))
+            return {'id': result.get('id', 'resend'), 'threadId': 'resend'}
+    except urllib.error.HTTPError as e:
+        error_body = e.read().decode('utf-8')
+        raise RuntimeError(f"Resend API error {e.code}: {error_body}")
 
 
 def send_email_smtp(sender_email: str, app_password: str, to: str, to_name: str, subject: str, html_body: str) -> dict:
@@ -304,12 +333,25 @@ def main():
         print(f"Template error: {e}", file=sys.stderr)
         sys.exit(1)
 
-    # Check for SMTP credentials first (simplest, recommended)
-    sender_email = args.sender or os.environ.get('GMAIL_SENDER_EMAIL')
-    app_password = args.smtp_password or os.environ.get('GMAIL_APP_PASSWORD')
+    # Get sender email
+    sender_email = args.sender or os.environ.get('GMAIL_SENDER_EMAIL') or "benreeder@builderbenai.com"
 
+    # Try Resend first (works everywhere, recommended)
+    resend_key = os.environ.get('RESEND_API_KEY') or RESEND_API_KEY
+    if resend_key:
+        print(f"Sending via Resend as {sender_email}...", file=sys.stderr)
+        try:
+            result = send_email_resend(resend_key, sender_email, args.to, args.to_name, subject, html_body)
+            print(f"Email sent successfully via Resend!")
+            print(f"Message ID: {result['id']}")
+            return
+        except Exception as e:
+            print(f"Resend failed: {e}", file=sys.stderr)
+            print("Falling back to other methods...", file=sys.stderr)
+
+    # Try SMTP next
+    app_password = args.smtp_password or os.environ.get('GMAIL_APP_PASSWORD')
     if sender_email and app_password:
-        # Use SMTP - simplest method, never expires
         print(f"Sending via SMTP as {sender_email}...", file=sys.stderr)
         try:
             result = send_email_smtp(sender_email, app_password, args.to, args.to_name, subject, html_body)

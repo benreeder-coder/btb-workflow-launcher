@@ -8,7 +8,7 @@ This module provides database operations for:
 - Activity logging
 - Settings
 """
-from datetime import date, datetime, timedelta
+from datetime import date, datetime, time, timedelta
 from typing import Optional, List, Dict, Any, Tuple
 from uuid import UUID
 import json
@@ -44,8 +44,12 @@ def _serialize_for_db(data: dict) -> dict:
     for key, value in data.items():
         if value is None:
             result[key] = None
-        elif isinstance(value, (date, datetime)):
+        elif isinstance(value, datetime):
             result[key] = value.isoformat()
+        elif isinstance(value, date):
+            result[key] = value.isoformat()
+        elif isinstance(value, time):
+            result[key] = value.strftime("%H:%M:%S")
         elif isinstance(value, UUID):
             result[key] = str(value)
         elif hasattr(value, 'value'):  # Enum

@@ -209,6 +209,27 @@ class TaskBase(BaseModel):
     blocked_reason: Optional[str] = None
     client_id: Optional[UUID] = None
 
+    @field_validator('due_time', mode='before')
+    @classmethod
+    def parse_time(cls, v):
+        """Parse time from string format."""
+        if v is None or v == '':
+            return None
+        if isinstance(v, time):
+            return v
+        if isinstance(v, str):
+            # Handle "HH:MM" or "HH:MM:SS" formats
+            try:
+                if ':' in v:
+                    parts = v.split(':')
+                    if len(parts) == 2:
+                        return time(int(parts[0]), int(parts[1]))
+                    elif len(parts) == 3:
+                        return time(int(parts[0]), int(parts[1]), int(parts[2]))
+            except (ValueError, IndexError):
+                pass
+        return v
+
 
 class TaskCreate(TaskBase):
     """Fields for creating a new task."""

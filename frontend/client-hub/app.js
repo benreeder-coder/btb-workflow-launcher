@@ -295,8 +295,15 @@ const ClientHub = (function() {
                 closeTaskModal();
                 navigateTo(state.currentView);
             } else {
-                const error = await response.json();
-                alert('Failed to save task: ' + (error.detail || 'Unknown error'));
+                // Try to parse JSON error, fall back to text
+                let errorMessage = 'Unknown error';
+                try {
+                    const errorData = await response.json();
+                    errorMessage = errorData.detail || JSON.stringify(errorData);
+                } catch {
+                    errorMessage = await response.text() || `HTTP ${response.status}`;
+                }
+                alert('Failed to save task: ' + errorMessage);
             }
         } catch (error) {
             alert('Failed to save task: ' + error.message);

@@ -166,7 +166,12 @@ def get_task(task_id: UUID, db=Depends(get_db)):
 @router.post("/tasks", response_model=TaskWithSubtasks, status_code=201)
 def create_task(task: TaskCreate, db=Depends(get_db)):
     """Create a new task with optional subtasks."""
-    return crud.create_task(db, task)
+    import logging
+    try:
+        return crud.create_task(db, task)
+    except Exception as e:
+        logging.error(f"Error creating task: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Failed to create task: {str(e)}")
 
 
 @router.put("/tasks/{task_id}", response_model=TaskWithSubtasks)
