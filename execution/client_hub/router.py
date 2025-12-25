@@ -291,45 +291,56 @@ def reorder_subtasks(task_id: UUID, subtask_ids: List[UUID], db=Depends(get_db))
 @router.get("/views/today", response_model=TodayViewResponse)
 def get_today_view(db=Depends(get_db)):
     """Get the Today view with meetings, ranked tasks, and capacity."""
-    today = date.today()
-    settings = crud.get_settings(db)
+    import logging
 
-    # Get today's tasks
-    tasks = crud.get_today_tasks(db, today)
+    try:
+        today = date.today()
+        logging.info(f"Getting today view for {today}")
 
-    # Rank tasks
-    ranked_tasks = rank_tasks(tasks, settings)
+        settings = crud.get_settings(db)
+        logging.info(f"Got settings: capacity={settings.capacity_minutes_per_day}")
 
-    # Get today's meetings
-    meetings = crud.get_calendar_events(db, today, today)
+        # Get today's tasks
+        tasks = crud.get_today_tasks(db, today)
+        logging.info(f"Got {len(tasks)} tasks for today")
 
-    # Separate by timebox
-    pinned = [t for t in ranked_tasks if t.pinned_today]
-    morning = [t for t in ranked_tasks if t.timebox_bucket == TimeboxBucket.MORNING and not t.pinned_today]
-    afternoon = [t for t in ranked_tasks if t.timebox_bucket == TimeboxBucket.AFTERNOON and not t.pinned_today]
-    evening = [t for t in ranked_tasks if t.timebox_bucket == TimeboxBucket.EVENING and not t.pinned_today]
-    unscheduled = [t for t in ranked_tasks if t.timebox_bucket == TimeboxBucket.NONE and not t.pinned_today]
+        # Rank tasks
+        ranked_tasks = rank_tasks(tasks, settings)
 
-    # Calculate capacity
-    capacity_used = sum(t.estimated_minutes or 0 for t in ranked_tasks)
+        # Get today's meetings
+        meetings = crud.get_calendar_events(db, today, today)
+        logging.info(f"Got {len(meetings)} meetings")
 
-    # Count overdue and pending
-    overdue_count = sum(1 for t in ranked_tasks if t.due_date and t.due_date < today)
-    pending_count = sum(1 for t in ranked_tasks if t.status == TaskStatus.PENDING)
+        # Separate by timebox
+        pinned = [t for t in ranked_tasks if t.pinned_today]
+        morning = [t for t in ranked_tasks if t.timebox_bucket == TimeboxBucket.MORNING and not t.pinned_today]
+        afternoon = [t for t in ranked_tasks if t.timebox_bucket == TimeboxBucket.AFTERNOON and not t.pinned_today]
+        evening = [t for t in ranked_tasks if t.timebox_bucket == TimeboxBucket.EVENING and not t.pinned_today]
+        unscheduled = [t for t in ranked_tasks if t.timebox_bucket == TimeboxBucket.NONE and not t.pinned_today]
 
-    return TodayViewResponse(
-        date=today,
-        meetings=meetings,
-        pinned_tasks=pinned,
-        morning_tasks=morning,
-        afternoon_tasks=afternoon,
-        evening_tasks=evening,
-        unscheduled_tasks=unscheduled,
-        capacity_used_minutes=capacity_used,
-        capacity_total_minutes=settings.capacity_minutes_per_day,
-        overdue_count=overdue_count,
-        pending_count=pending_count,
-    )
+        # Calculate capacity
+        capacity_used = sum(t.estimated_minutes or 0 for t in ranked_tasks)
+
+        # Count overdue and pending
+        overdue_count = sum(1 for t in ranked_tasks if t.due_date and t.due_date < today)
+        pending_count = sum(1 for t in ranked_tasks if t.status == TaskStatus.PENDING)
+
+        return TodayViewResponse(
+            date=today,
+            meetings=meetings,
+            pinned_tasks=pinned,
+            morning_tasks=morning,
+            afternoon_tasks=afternoon,
+            evening_tasks=evening,
+            unscheduled_tasks=unscheduled,
+            capacity_used_minutes=capacity_used,
+            capacity_total_minutes=settings.capacity_minutes_per_day,
+            overdue_count=overdue_count,
+            pending_count=pending_count,
+        )
+    except Exception as e:
+        logging.error(f"Error in get_today_view: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Failed to load today view: {str(e)}")
 
 
 @router.get("/views/inbox", response_model=InboxViewResponse)

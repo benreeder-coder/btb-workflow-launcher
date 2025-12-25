@@ -696,19 +696,41 @@ SETTINGS_ID = "00000000-0000-0000-0000-000000000001"
 
 def get_settings(supabase: SupabaseClient) -> Settings:
     """Get settings (singleton)."""
-    result = supabase.table("settings").select("*").eq("id", SETTINGS_ID).execute()
-    if result.data:
-        data = result.data[0]
-        # Parse JSON fields
-        if isinstance(data.get("ranking_weights"), str):
-            data["ranking_weights"] = json.loads(data["ranking_weights"])
-        if isinstance(data.get("client_matching_rules"), str):
-            data["client_matching_rules"] = json.loads(data["client_matching_rules"])
-        return Settings(**data)
+    try:
+        result = supabase.table("settings").select("*").eq("id", SETTINGS_ID).execute()
+        if result.data:
+            data = result.data[0]
+            # Parse JSON fields
+            if isinstance(data.get("ranking_weights"), str):
+                data["ranking_weights"] = json.loads(data["ranking_weights"])
+            if isinstance(data.get("client_matching_rules"), str):
+                data["client_matching_rules"] = json.loads(data["client_matching_rules"])
 
-    # Create default if not exists
-    supabase.table("settings").insert({"id": SETTINGS_ID}).execute()
-    return Settings()
+            # Parse time fields from string format
+            time_fields = ['work_start_time', 'work_end_time', 'morning_end', 'afternoon_end',
+                          'morning_digest_time', 'evening_digest_time']
+            for field in time_fields:
+                if field in data and data[field] is not None:
+                    if isinstance(data[field], str):
+                        # Parse time string like "09:00:00" to time object
+                        try:
+                            data[field] = datetime.strptime(data[field], "%H:%M:%S").time()
+                        except ValueError:
+                            try:
+                                data[field] = datetime.strptime(data[field], "%H:%M").time()
+                            except ValueError:
+                                data[field] = None
+
+            return Settings(**data)
+
+        # Create default if not exists
+        supabase.table("settings").insert({"id": SETTINGS_ID}).execute()
+        return Settings()
+    except Exception as e:
+        # If anything fails, return defaults to avoid blocking the app
+        import logging
+        logging.warning(f"Failed to get settings: {e}, using defaults")
+        return Settings()
 
 
 def update_settings(
