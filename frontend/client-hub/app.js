@@ -480,7 +480,10 @@ const ClientHub = (function() {
 
             if (inboxRes.ok) {
                 const data = await inboxRes.json();
-                const count = data.tasks?.length || 0;
+                // Inbox returns tasks_missing_client, tasks_missing_due_date, etc.
+                const count = (data.tasks_missing_client?.length || 0) +
+                              (data.tasks_missing_due_date?.length || 0) +
+                              (data.possible_duplicates?.length || 0);
                 const badge = document.getElementById('inbox-count');
                 if (badge) {
                     badge.textContent = count;
@@ -490,7 +493,8 @@ const ClientHub = (function() {
 
             if (overdueRes.ok) {
                 const data = await overdueRes.json();
-                const count = data.tasks?.length || 0;
+                // Overdue returns a raw array
+                const count = Array.isArray(data) ? data.length : (data.tasks?.length || 0);
                 const badge = document.getElementById('overdue-count');
                 if (badge) {
                     badge.textContent = count;
@@ -500,7 +504,8 @@ const ClientHub = (function() {
 
             if (pendingRes.ok) {
                 const data = await pendingRes.json();
-                const count = data.tasks?.length || 0;
+                // Pending returns total_count
+                const count = data.total_count || 0;
                 const badge = document.getElementById('pending-count');
                 if (badge) {
                     badge.textContent = count;
@@ -683,7 +688,10 @@ const ClientHub = (function() {
             if (!response.ok) throw new Error('Failed to load');
             const data = await response.json();
 
-            const tasks = data.tasks || [];
+            // Combine all task lists from inbox response
+            const missingClient = data.tasks_missing_client || [];
+            const missingDue = data.tasks_missing_due_date || [];
+            const duplicates = data.possible_duplicates || [];
 
             let html = `
                 <div class="quick-add" style="margin-bottom: 1.5rem;">
@@ -693,7 +701,9 @@ const ClientHub = (function() {
                 </div>
             `;
 
-            if (tasks.length === 0) {
+            const totalCount = missingClient.length + missingDue.length + duplicates.length;
+
+            if (totalCount === 0) {
                 html += `
                     <div class="empty-state">
                         <div class="empty-state-icon">${icons.inbox}</div>
@@ -702,16 +712,44 @@ const ClientHub = (function() {
                     </div>
                 `;
             } else {
-                html += `
-                    <div class="task-section">
-                        <div class="task-section-header">
-                            ${icons.inbox}
-                            <span class="task-section-title">Needs Triage</span>
-                            <span class="task-section-count">${tasks.length}</span>
+                if (missingClient.length > 0) {
+                    html += `
+                        <div class="task-section">
+                            <div class="task-section-header">
+                                ${icons.user}
+                                <span class="task-section-title">Missing Client</span>
+                                <span class="task-section-count">${missingClient.length}</span>
+                            </div>
+                            ${missingClient.map(t => renderTaskCard(t)).join('')}
                         </div>
-                        ${tasks.map(t => renderTaskCard(t)).join('')}
-                    </div>
-                `;
+                    `;
+                }
+
+                if (missingDue.length > 0) {
+                    html += `
+                        <div class="task-section">
+                            <div class="task-section-header">
+                                ${icons.calendar}
+                                <span class="task-section-title">Missing Due Date</span>
+                                <span class="task-section-count">${missingDue.length}</span>
+                            </div>
+                            ${missingDue.map(t => renderTaskCard(t)).join('')}
+                        </div>
+                    `;
+                }
+
+                if (duplicates.length > 0) {
+                    html += `
+                        <div class="task-section">
+                            <div class="task-section-header">
+                                ${icons.pending}
+                                <span class="task-section-title">Possible Duplicates</span>
+                                <span class="task-section-count">${duplicates.length}</span>
+                            </div>
+                            ${duplicates.map(t => renderTaskCard(t)).join('')}
+                        </div>
+                    `;
+                }
             }
 
             container.innerHTML = html;
@@ -729,9 +767,13 @@ const ClientHub = (function() {
             if (!response.ok) throw new Error('Failed to load');
             const data = await response.json();
 
-            const tasks = data.tasks || [];
+            // Use the actual response structure
+            const tasksByClient = data.tasks_by_client || {};
+            const unassignedTasks = data.unassigned_tasks || [];
+            const clients = data.clients || [];
+            const totalCount = data.total_count || 0;
 
-            if (tasks.length === 0) {
+            if (totalCount === 0) {
                 container.innerHTML = `
                     <div class="empty-state">
                         <div class="empty-state-icon">${icons.pending}</div>
@@ -742,27 +784,38 @@ const ClientHub = (function() {
                 return;
             }
 
-            // Group by client
-            const grouped = {};
-            tasks.forEach(task => {
-                const key = task.client?.name || 'No Client';
-                if (!grouped[key]) grouped[key] = [];
-                grouped[key].push(task);
+            let html = '';
+
+            // Render tasks by client
+            clients.forEach(client => {
+                const clientTasks = tasksByClient[client.id] || [];
+                if (clientTasks.length > 0) {
+                    html += `
+                        <div class="task-section">
+                            <div class="task-section-header">
+                                ${icons.user}
+                                <span class="task-section-title">${escapeHtml(client.name)}</span>
+                                <span class="task-section-count">${clientTasks.length}</span>
+                            </div>
+                            ${clientTasks.map(t => renderTaskCard(t)).join('')}
+                        </div>
+                    `;
+                }
             });
 
-            let html = '';
-            Object.entries(grouped).forEach(([clientName, clientTasks]) => {
+            // Render unassigned tasks
+            if (unassignedTasks.length > 0) {
                 html += `
                     <div class="task-section">
                         <div class="task-section-header">
-                            ${icons.user}
-                            <span class="task-section-title">${escapeHtml(clientName)}</span>
-                            <span class="task-section-count">${clientTasks.length}</span>
+                            ${icons.inbox}
+                            <span class="task-section-title">No Client</span>
+                            <span class="task-section-count">${unassignedTasks.length}</span>
                         </div>
-                        ${clientTasks.map(t => renderTaskCard(t)).join('')}
+                        ${unassignedTasks.map(t => renderTaskCard(t)).join('')}
                     </div>
                 `;
-            });
+            }
 
             container.innerHTML = html;
         } catch (error) {
@@ -779,7 +832,8 @@ const ClientHub = (function() {
             if (!response.ok) throw new Error('Failed to load');
             const data = await response.json();
 
-            const tasks = data.tasks || [];
+            // Overdue endpoint returns a raw array, not {tasks: [...]}
+            const tasks = Array.isArray(data) ? data : (data.tasks || []);
 
             if (tasks.length === 0) {
                 container.innerHTML = `
