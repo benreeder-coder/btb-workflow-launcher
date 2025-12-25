@@ -14,7 +14,7 @@ from uuid import UUID
 
 from fastapi import APIRouter, HTTPException, Depends, Query
 
-from ..supabase_client import get_supabase, SupabaseClientError
+from supabase_client import get_supabase, SupabaseClientError
 from . import crud
 from .models import (
     # Enums

@@ -13,7 +13,7 @@ from uuid import UUID
 
 from fastapi import APIRouter, HTTPException, Header, Depends
 
-from ..supabase_client import get_supabase, SupabaseClientError
+from supabase_client import get_supabase, SupabaseClientError
 from . import crud
 from .models import (
     TaskStatus, TaskPriority, TimeboxBucket, SourceType, ActorType, ActionType, EntityType,
