@@ -525,6 +525,66 @@ class CalendarEvent(CalendarEventBase):
 
 
 # ============================================
+# CALL MODELS (Fireflies Transcripts)
+# ============================================
+
+class CallBase(BaseModel):
+    """Base call fields."""
+    title: str
+    call_date: datetime
+    duration_minutes: Optional[int] = None
+    transcript_url: Optional[str] = None
+    meeting_link: Optional[str] = None
+    participants: List[str] = Field(default_factory=list)
+    speakers: List[str] = Field(default_factory=list)
+    summary: Optional[str] = None
+    action_items: Optional[str] = None
+    keywords: List[str] = Field(default_factory=list)
+    overview: Optional[str] = None
+
+
+class CallCreate(CallBase):
+    """Fields for creating/upserting a call."""
+    fireflies_id: str
+    client_id: Optional[UUID] = None
+    source_type: SourceType = SourceType.FIREFLIES
+    raw_source_payload: Optional[Dict[str, Any]] = None
+
+
+class Call(CallBase):
+    """Full call model with database fields."""
+    id: UUID
+    fireflies_id: str
+    client_id: Optional[UUID] = None
+    client: Optional[Client] = None
+    source_type: SourceType = SourceType.FIREFLIES
+    raw_source_payload: Optional[Dict[str, Any]] = None
+    created_at: Optional[datetime] = None
+    updated_at: Optional[datetime] = None
+
+    class Config:
+        from_attributes = True
+
+    @field_validator('call_date', 'created_at', 'updated_at', mode='before')
+    @classmethod
+    def parse_datetime(cls, v):
+        """Parse datetime from string format."""
+        if v is None or v == '':
+            return None
+        if isinstance(v, datetime):
+            return v
+        if isinstance(v, str):
+            try:
+                if 'T' in v:
+                    return datetime.fromisoformat(v.replace('Z', '+00:00'))
+                else:
+                    return datetime.fromisoformat(v)
+            except ValueError:
+                pass
+        return v
+
+
+# ============================================
 # SETTINGS MODELS
 # ============================================
 
@@ -770,3 +830,47 @@ class DigestRenderResponse(BaseModel):
     subject: str
     html: str
     sections: Dict[str, Any]
+
+
+# ============================================
+# CALL WEBHOOK MODELS
+# ============================================
+
+class WebhookCallClient(BaseModel):
+    """Client info in webhook call payload."""
+    name: str
+    domain: Optional[str] = None
+
+
+class WebhookCall(BaseModel):
+    """Call in webhook upsert payload."""
+    fireflies_id: str
+    client: Optional[WebhookCallClient] = None
+    title: str
+    call_date: datetime
+    duration_minutes: Optional[int] = None
+    transcript_url: Optional[str] = None
+    meeting_link: Optional[str] = None
+    participants: List[str] = Field(default_factory=list)
+    speakers: List[str] = Field(default_factory=list)
+    summary: Optional[str] = None
+    action_items: Optional[str] = None
+    keywords: List[str] = Field(default_factory=list)
+    overview: Optional[str] = None
+    raw_source_payload: Optional[Dict[str, Any]] = None
+
+
+class WebhookCallsUpsertPayload(BaseModel):
+    """Payload for POST /api/webhooks/calls/upsert."""
+    schema_version: int = 1
+    ingested_at: datetime
+    source: WebhookSource
+    calls: List[WebhookCall]
+
+
+class ClientCallsResponse(BaseModel):
+    """Response for client calls endpoint."""
+    client_id: UUID
+    client_name: str
+    calls: List[Call] = Field(default_factory=list)
+    total_count: int = 0

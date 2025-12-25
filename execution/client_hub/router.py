@@ -27,6 +27,8 @@ from .models import (
     Subtask, SubtaskCreate, SubtaskUpdate,
     # Calendar
     CalendarEvent,
+    # Calls
+    Call, ClientCallsResponse,
     # Settings
     Settings, SettingsUpdate,
     # View responses
@@ -515,3 +517,147 @@ def search(
         clients=clients,
         total_count=len(tasks) + len(clients),
     )
+
+
+# ============================================
+# CALL ENDPOINTS
+# ============================================
+
+@router.get("/calls", response_model=List[Call])
+def list_calls(
+    client_id: Optional[UUID] = None,
+    limit: int = Query(default=50, le=200),
+    db=Depends(get_db),
+):
+    """List calls, optionally filtered by client."""
+    if client_id:
+        return crud.get_calls_by_client(db, client_id, limit=limit)
+    return crud.get_all_calls(db, limit=limit)
+
+
+@router.get("/calls/{call_id}", response_model=Call)
+def get_call(call_id: UUID, db=Depends(get_db)):
+    """Get a single call by ID."""
+    call = crud.get_call(db, call_id)
+    if not call:
+        raise HTTPException(status_code=404, detail="Call not found")
+    return call
+
+
+@router.get("/clients/{client_id}/calls", response_model=ClientCallsResponse)
+def get_client_calls(
+    client_id: UUID,
+    limit: int = Query(default=50, le=200),
+    db=Depends(get_db),
+):
+    """Get all calls for a specific client."""
+    client = crud.get_client(db, client_id)
+    if not client:
+        raise HTTPException(status_code=404, detail="Client not found")
+
+    calls = crud.get_calls_by_client(db, client_id, limit=limit)
+
+    return ClientCallsResponse(
+        client_id=client_id,
+        client_name=client.name,
+        calls=calls,
+        total_count=len(calls),
+    )
+
+
+@router.delete("/calls/{call_id}")
+def delete_call(call_id: UUID, db=Depends(get_db)):
+    """Delete a call."""
+    success = crud.delete_call(db, call_id)
+    if not success:
+        raise HTTPException(status_code=404, detail="Call not found")
+    return {"success": True}
+
+
+# ============================================
+# CLIENT LOOKUP ENDPOINT (for n8n)
+# ============================================
+
+@router.get("/clients/lookup")
+def lookup_client(
+    domain: Optional[str] = None,
+    name: Optional[str] = None,
+    db=Depends(get_db),
+):
+    """
+    Look up a client by domain or name.
+
+    Used by n8n workflows to check if a client exists before creating tasks.
+
+    Query params:
+    - domain: Email domain to check (e.g., "agencyoperators.io")
+    - name: Client name to check (partial match supported)
+
+    Returns:
+    - found: bool
+    - client: Client object if found
+    - domain: The domain that was searched (if provided)
+    """
+    if not domain and not name:
+        raise HTTPException(
+            status_code=400,
+            detail="Must provide either 'domain' or 'name' parameter"
+        )
+
+    client = None
+
+    # Try domain lookup first
+    if domain:
+        client = crud.lookup_client_by_domain(db, domain)
+
+    # Fall back to name lookup
+    if not client and name:
+        client = crud.lookup_client_by_name(db, name)
+
+    if client:
+        return {
+            "found": True,
+            "client": {
+                "id": str(client.id),
+                "name": client.name,
+                "status": client.status.value,
+                "color_hex": client.color_hex,
+                "default_priority_weight": client.default_priority_weight,
+                "health_status": client.health_status.value if client.health_status else None,
+                "metadata": client.metadata,
+            },
+            "domain": domain,
+        }
+    else:
+        # Generate suggested name from domain
+        suggested_name = None
+        if domain:
+            # agencyoperators.io → Agency Operators
+            base = domain.split('.')[0]  # Remove TLD
+            suggested_name = ' '.join(
+                word.capitalize() for word in base.replace('-', ' ').replace('_', ' ').split()
+            )
+
+        return {
+            "found": False,
+            "suggested_name": suggested_name,
+            "domain": domain,
+            "name": name,
+        }
+
+
+@router.post("/clients/{client_id}/domains")
+def add_client_domain(
+    client_id: UUID,
+    domain: str = Query(..., min_length=3),
+    db=Depends(get_db),
+):
+    """
+    Add a domain to a client's associated domains.
+
+    Used after manually mapping a new domain to a client.
+    """
+    success = crud.add_domain_to_client(db, client_id, domain)
+    if not success:
+        raise HTTPException(status_code=404, detail="Client not found")
+    return {"success": True, "domain": domain, "client_id": str(client_id)}

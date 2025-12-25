@@ -29,6 +29,8 @@ from .models import (
     ActivityLogCreate,
     # Calendar
     CalendarEvent, CalendarEventCreate,
+    # Calls
+    Call, CallCreate,
     # Settings
     Settings, SettingsUpdate,
 )
@@ -947,3 +949,223 @@ def search_clients(
     ).is_("archived_at", "null").limit(limit).execute()
 
     return [Client(**row) for row in result.data]
+
+
+# ============================================
+# CALL CRUD OPERATIONS
+# ============================================
+
+def get_call(supabase: SupabaseClient, call_id: UUID) -> Optional[Call]:
+    """Get a single call by ID with client info."""
+    from .models import Call, Client
+
+    result = supabase.table("calls").select("*").eq(
+        "id", str(call_id)
+    ).execute()
+
+    if not result.data:
+        return None
+
+    call_data = result.data[0]
+
+    # Get client if linked
+    client = None
+    if call_data.get("client_id"):
+        client_result = supabase.table("clients").select("*").eq(
+            "id", call_data["client_id"]
+        ).execute()
+        if client_result.data:
+            client = Client(**client_result.data[0])
+
+    return Call(**call_data, client=client)
+
+
+def get_calls_by_client(
+    supabase: SupabaseClient,
+    client_id: UUID,
+    limit: int = 50,
+) -> List[Call]:
+    """Get calls for a specific client, ordered by date descending."""
+    from .models import Call, Client
+
+    result = supabase.table("calls").select("*").eq(
+        "client_id", str(client_id)
+    ).order("call_date", desc=True).limit(limit).execute()
+
+    # Get client info once
+    client = None
+    client_result = supabase.table("clients").select("*").eq(
+        "id", str(client_id)
+    ).execute()
+    if client_result.data:
+        client = Client(**client_result.data[0])
+
+    calls = []
+    for row in result.data:
+        calls.append(Call(**row, client=client))
+
+    return calls
+
+
+def get_all_calls(
+    supabase: SupabaseClient,
+    limit: int = 100,
+) -> List[Call]:
+    """Get all calls ordered by date descending."""
+    from .models import Call, Client
+
+    result = supabase.table("calls").select("*").order(
+        "call_date", desc=True
+    ).limit(limit).execute()
+
+    # Get all clients for lookup
+    clients_result = supabase.table("clients").select("*").execute()
+    clients_by_id = {row["id"]: Client(**row) for row in clients_result.data}
+
+    calls = []
+    for row in result.data:
+        client = clients_by_id.get(row.get("client_id"))
+        calls.append(Call(**row, client=client))
+
+    return calls
+
+
+def upsert_call(
+    supabase: SupabaseClient,
+    call: CallCreate,
+) -> Call:
+    """Upsert a call by fireflies_id."""
+    from .models import Call
+
+    call_data = {
+        "fireflies_id": call.fireflies_id,
+        "client_id": str(call.client_id) if call.client_id else None,
+        "title": call.title,
+        "call_date": call.call_date.isoformat(),
+        "duration_minutes": call.duration_minutes,
+        "transcript_url": call.transcript_url,
+        "meeting_link": call.meeting_link,
+        "participants": call.participants,
+        "speakers": call.speakers,
+        "summary": call.summary,
+        "action_items": call.action_items,
+        "keywords": call.keywords,
+        "overview": call.overview,
+        "source_type": call.source_type.value,
+        "raw_source_payload": call.raw_source_payload,
+    }
+
+    # Upsert by fireflies_id
+    result = supabase.table("calls").upsert(
+        call_data,
+        on_conflict="fireflies_id"
+    ).execute()
+
+    if result.data:
+        return get_call(supabase, UUID(result.data[0]["id"]))
+
+    raise ValueError("Failed to upsert call")
+
+
+def delete_call(supabase: SupabaseClient, call_id: UUID) -> bool:
+    """Delete a call."""
+    result = supabase.table("calls").delete().eq(
+        "id", str(call_id)
+    ).execute()
+    return len(result.data) > 0
+
+
+# ============================================
+# CLIENT LOOKUP OPERATIONS
+# ============================================
+
+def lookup_client_by_domain(
+    supabase: SupabaseClient,
+    domain: str,
+) -> Optional[Client]:
+    """
+    Look up a client by email domain.
+
+    Checks:
+    1. settings.client_matching_rules.domains for domain → client_id mapping
+    2. Client metadata for stored domains
+
+    Returns the matched client or None.
+    """
+    domain = domain.lower().strip()
+
+    # First, check settings.client_matching_rules.domains
+    settings = get_settings(supabase)
+    for rule in settings.client_matching_rules.domains:
+        if rule.domain.lower() == domain:
+            return get_client(supabase, rule.client_id)
+
+    # Second, check client metadata for domains array
+    # Query clients where metadata->domains contains the domain
+    result = supabase.table("clients").select("*").is_(
+        "archived_at", "null"
+    ).execute()
+
+    for row in result.data:
+        metadata = row.get("metadata", {}) or {}
+        domains = metadata.get("domains", [])
+        if domain in [d.lower() for d in domains]:
+            return Client(**row)
+
+    return None
+
+
+def lookup_client_by_name(
+    supabase: SupabaseClient,
+    name: str,
+) -> Optional[Client]:
+    """
+    Look up a client by name (case-insensitive partial match).
+    """
+    # Try exact match first
+    result = supabase.table("clients").select("*").ilike(
+        "name", name
+    ).is_("archived_at", "null").execute()
+
+    if result.data:
+        return Client(**result.data[0])
+
+    # Try partial match
+    result = supabase.table("clients").select("*").ilike(
+        "name", f"%{name}%"
+    ).is_("archived_at", "null").execute()
+
+    if result.data:
+        return Client(**result.data[0])
+
+    return None
+
+
+def add_domain_to_client(
+    supabase: SupabaseClient,
+    client_id: UUID,
+    domain: str,
+) -> bool:
+    """
+    Add a domain to client's metadata.domains array.
+    """
+    domain = domain.lower().strip()
+
+    # Get current client
+    client = get_client(supabase, client_id)
+    if not client:
+        return False
+
+    # Update metadata
+    metadata = client.metadata or {}
+    domains = metadata.get("domains", [])
+
+    if domain not in [d.lower() for d in domains]:
+        domains.append(domain)
+        metadata["domains"] = domains
+
+        supabase.table("clients").update({
+            "metadata": metadata
+        }).eq("id", str(client_id)).execute()
+
+    return True

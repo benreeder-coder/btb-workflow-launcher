@@ -19,7 +19,8 @@ from .models import (
     TaskStatus, TaskPriority, TimeboxBucket, SourceType, ActorType, ActionType, EntityType,
     TaskCreate, SubtaskCreate,
     CalendarEventCreate, Attendee,
-    WebhookTasksUpsertPayload, WebhookCalendarUpsertPayload,
+    CallCreate,
+    WebhookTasksUpsertPayload, WebhookCalendarUpsertPayload, WebhookCallsUpsertPayload,
     DigestRenderRequest, DigestRenderResponse,
     Settings,
 )
@@ -446,3 +447,87 @@ def render_digest_endpoint(
     Returns HTML content for morning or evening digest.
     """
     return render_digest(db, request.type, request.date)
+
+
+# ============================================
+# CALL UPSERT WEBHOOK
+# ============================================
+
+@router.post("/calls/upsert")
+def upsert_calls(
+    payload: WebhookCallsUpsertPayload,
+    _=Depends(verify_webhook_secret),
+    db=Depends(get_db),
+):
+    """
+    Idempotent call ingestion from n8n/Fireflies.
+
+    Behavior:
+    - Upsert by fireflies_id (prevents duplicates)
+    - Handles client matching by name or domain
+    - Stores full call summary and action items
+    """
+    results = {
+        "created": 0,
+        "updated": 0,
+        "errors": [],
+        "call_ids": [],
+    }
+
+    for call_data in payload.calls:
+        try:
+            # Handle client matching
+            client_id = None
+            if call_data.client:
+                client_id = match_or_create_client(
+                    db,
+                    call_data.client.name,
+                    call_data.client.domain,
+                )
+
+            # Check if call already exists
+            existing = db.table("calls").select("id").eq(
+                "fireflies_id", call_data.fireflies_id
+            ).execute()
+
+            is_update = len(existing.data) > 0
+
+            # Create call object
+            new_call = CallCreate(
+                fireflies_id=call_data.fireflies_id,
+                client_id=client_id,
+                title=call_data.title,
+                call_date=call_data.call_date,
+                duration_minutes=call_data.duration_minutes,
+                transcript_url=call_data.transcript_url,
+                meeting_link=call_data.meeting_link,
+                participants=call_data.participants,
+                speakers=call_data.speakers,
+                summary=call_data.summary,
+                action_items=call_data.action_items,
+                keywords=call_data.keywords,
+                overview=call_data.overview,
+                source_type=SourceType.FIREFLIES,
+                raw_source_payload=call_data.raw_source_payload,
+            )
+
+            # Upsert call
+            created = crud.upsert_call(db, new_call)
+
+            if is_update:
+                results["updated"] += 1
+            else:
+                results["created"] += 1
+
+            results["call_ids"].append(str(created.id))
+
+        except Exception as e:
+            results["errors"].append({
+                "fireflies_id": call_data.fireflies_id,
+                "error": str(e),
+            })
+
+    return {
+        "success": len(results["errors"]) == 0,
+        "results": results,
+    }
