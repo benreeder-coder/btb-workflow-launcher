@@ -13,6 +13,8 @@ const ClientHub = (function() {
         clients: [],
         settings: null,
         loading: false,
+        modalMode: 'create', // 'create' or 'edit'
+        editingTaskId: null,
     };
 
     // ==================== ICONS ====================
@@ -29,6 +31,7 @@ const ClientHub = (function() {
         plus: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>`,
         check: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>`,
         clock: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>`,
+        close: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>`,
         flag: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"/><line x1="4" y1="22" x2="4" y2="15"/></svg>`,
         user: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>`,
         morning: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>`,
@@ -39,10 +42,268 @@ const ClientHub = (function() {
     // ==================== INITIALIZATION ====================
     function init() {
         renderSidebar();
+        renderTaskModal();
         loadSettings();
         loadClients();
         navigateTo('today');
-        setupQuickAdd();
+        setupEventListeners();
+    }
+
+    function setupEventListeners() {
+        // Close modal on overlay click
+        document.addEventListener('click', (e) => {
+            if (e.target.classList.contains('task-modal-overlay')) {
+                closeTaskModal();
+            }
+        });
+
+        // Close modal on Escape
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape') {
+                closeTaskModal();
+            }
+        });
+
+        // Status change shows/hides pending fields
+        document.addEventListener('change', (e) => {
+            if (e.target.id === 'task-status') {
+                const pendingFields = document.getElementById('pending-fields');
+                if (pendingFields) {
+                    pendingFields.classList.toggle('show', e.target.value === 'PENDING');
+                }
+            }
+        });
+    }
+
+    // ==================== TASK MODAL ====================
+    function renderTaskModal() {
+        // Check if modal already exists
+        if (document.getElementById('task-modal-overlay')) return;
+
+        const modalHtml = `
+            <div id="task-modal-overlay" class="task-modal-overlay">
+                <div class="task-modal">
+                    <div class="task-modal-header">
+                        <h2 class="task-modal-title" id="task-modal-title">Add New Task</h2>
+                        <button class="task-modal-close" onclick="ClientHub.closeTaskModal()">
+                            ${icons.close}
+                        </button>
+                    </div>
+                    <form id="task-form" onsubmit="ClientHub.handleTaskSubmit(event)">
+                        <div class="task-modal-body">
+                            <div class="task-form-group">
+                                <label class="task-form-label">
+                                    Title <span class="required">*</span>
+                                </label>
+                                <input type="text" id="task-title" class="task-form-input" placeholder="What needs to be done?" required />
+                            </div>
+
+                            <div class="task-form-group">
+                                <label class="task-form-label">Description</label>
+                                <textarea id="task-description" class="task-form-textarea" placeholder="Add more details..."></textarea>
+                            </div>
+
+                            <div class="task-form-row">
+                                <div class="task-form-group">
+                                    <label class="task-form-label">Client</label>
+                                    <select id="task-client" class="task-form-select">
+                                        <option value="">No client</option>
+                                    </select>
+                                </div>
+                                <div class="task-form-group">
+                                    <label class="task-form-label">Priority</label>
+                                    <select id="task-priority" class="task-form-select">
+                                        <option value="P0">P0 - Urgent</option>
+                                        <option value="P1">P1 - High</option>
+                                        <option value="P2" selected>P2 - Normal</option>
+                                        <option value="P3">P3 - Low</option>
+                                    </select>
+                                </div>
+                            </div>
+
+                            <div class="task-form-row">
+                                <div class="task-form-group">
+                                    <label class="task-form-label">Due Date</label>
+                                    <input type="date" id="task-due-date" class="task-form-input" />
+                                </div>
+                                <div class="task-form-group">
+                                    <label class="task-form-label">Due Time</label>
+                                    <input type="time" id="task-due-time" class="task-form-input" />
+                                </div>
+                            </div>
+
+                            <div class="task-form-row-3">
+                                <div class="task-form-group">
+                                    <label class="task-form-label">Status</label>
+                                    <select id="task-status" class="task-form-select">
+                                        <option value="NOT_STARTED" selected>Not Started</option>
+                                        <option value="IN_PROGRESS">In Progress</option>
+                                        <option value="PENDING">Pending/Blocked</option>
+                                        <option value="COMPLETED">Completed</option>
+                                    </select>
+                                </div>
+                                <div class="task-form-group">
+                                    <label class="task-form-label">Timebox</label>
+                                    <select id="task-timebox" class="task-form-select">
+                                        <option value="NONE" selected>None</option>
+                                        <option value="MORNING">Morning</option>
+                                        <option value="AFTERNOON">Afternoon</option>
+                                        <option value="EVENING">Evening</option>
+                                    </select>
+                                </div>
+                                <div class="task-form-group">
+                                    <label class="task-form-label">Est. Time</label>
+                                    <select id="task-estimated" class="task-form-select">
+                                        <option value="">Not set</option>
+                                        <option value="15">15 min</option>
+                                        <option value="30">30 min</option>
+                                        <option value="45">45 min</option>
+                                        <option value="60">1 hour</option>
+                                        <option value="90">1.5 hours</option>
+                                        <option value="120">2 hours</option>
+                                        <option value="180">3 hours</option>
+                                        <option value="240">4 hours</option>
+                                    </select>
+                                </div>
+                            </div>
+
+                            <div id="pending-fields" class="pending-fields">
+                                <div class="task-form-group" style="margin-bottom: 0.75rem;">
+                                    <label class="task-form-label">Waiting On</label>
+                                    <input type="text" id="task-waiting-on" class="task-form-input" placeholder="Who/what are you waiting on?" />
+                                </div>
+                                <div class="task-form-group" style="margin-bottom: 0;">
+                                    <label class="task-form-label">Blocked Reason</label>
+                                    <input type="text" id="task-blocked-reason" class="task-form-input" placeholder="Why is this blocked?" />
+                                </div>
+                            </div>
+                        </div>
+                        <div class="task-modal-footer">
+                            <button type="button" class="task-modal-btn secondary" onclick="ClientHub.closeTaskModal()">
+                                Cancel
+                            </button>
+                            <button type="submit" class="task-modal-btn primary" id="task-submit-btn">
+                                ${icons.plus} Add Task
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        `;
+
+        document.body.insertAdjacentHTML('beforeend', modalHtml);
+    }
+
+    function openTaskModal(mode = 'create', task = null) {
+        state.modalMode = mode;
+        state.editingTaskId = task?.id || null;
+
+        const overlay = document.getElementById('task-modal-overlay');
+        const title = document.getElementById('task-modal-title');
+        const submitBtn = document.getElementById('task-submit-btn');
+        const form = document.getElementById('task-form');
+
+        // Update client dropdown
+        updateClientDropdown();
+
+        if (mode === 'edit' && task) {
+            title.textContent = 'Edit Task';
+            submitBtn.innerHTML = `${icons.check} Save Changes`;
+
+            // Populate form
+            document.getElementById('task-title').value = task.title || '';
+            document.getElementById('task-description').value = task.description || '';
+            document.getElementById('task-client').value = task.client_id || '';
+            document.getElementById('task-priority').value = task.priority || 'P2';
+            document.getElementById('task-due-date').value = task.due_date || '';
+            document.getElementById('task-due-time').value = task.due_time || '';
+            document.getElementById('task-status').value = task.status || 'NOT_STARTED';
+            document.getElementById('task-timebox').value = task.timebox_bucket || 'NONE';
+            document.getElementById('task-estimated').value = task.estimated_minutes || '';
+            document.getElementById('task-waiting-on').value = task.waiting_on || '';
+            document.getElementById('task-blocked-reason').value = task.blocked_reason || '';
+
+            // Show pending fields if status is PENDING
+            document.getElementById('pending-fields').classList.toggle('show', task.status === 'PENDING');
+        } else {
+            title.textContent = 'Add New Task';
+            submitBtn.innerHTML = `${icons.plus} Add Task`;
+            form.reset();
+            document.getElementById('pending-fields').classList.remove('show');
+
+            // Set default due date to today
+            document.getElementById('task-due-date').value = new Date().toISOString().split('T')[0];
+        }
+
+        overlay.classList.add('show');
+        document.getElementById('task-title').focus();
+    }
+
+    function closeTaskModal() {
+        const overlay = document.getElementById('task-modal-overlay');
+        overlay.classList.remove('show');
+        state.modalMode = 'create';
+        state.editingTaskId = null;
+    }
+
+    function updateClientDropdown() {
+        const select = document.getElementById('task-client');
+        if (!select) return;
+
+        select.innerHTML = '<option value="">No client</option>' +
+            state.clients.map(c => `<option value="${c.id}">${escapeHtml(c.name)}</option>`).join('');
+    }
+
+    async function handleTaskSubmit(event) {
+        event.preventDefault();
+
+        const submitBtn = document.getElementById('task-submit-btn');
+        submitBtn.disabled = true;
+        submitBtn.innerHTML = '<div class="spinner" style="width:16px;height:16px;border-width:2px;"></div> Saving...';
+
+        const taskData = {
+            title: document.getElementById('task-title').value.trim(),
+            description: document.getElementById('task-description').value.trim() || null,
+            client_id: document.getElementById('task-client').value || null,
+            priority: document.getElementById('task-priority').value,
+            due_date: document.getElementById('task-due-date').value || null,
+            due_time: document.getElementById('task-due-time').value || null,
+            status: document.getElementById('task-status').value,
+            timebox_bucket: document.getElementById('task-timebox').value,
+            estimated_minutes: document.getElementById('task-estimated').value ? parseInt(document.getElementById('task-estimated').value) : null,
+            waiting_on: document.getElementById('task-waiting-on').value.trim() || null,
+            blocked_reason: document.getElementById('task-blocked-reason').value.trim() || null,
+        };
+
+        try {
+            let response;
+            if (state.modalMode === 'edit' && state.editingTaskId) {
+                response = await fetch(`${API_BASE}/api/hub/tasks/${state.editingTaskId}`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(taskData)
+                });
+            } else {
+                response = await fetch(`${API_BASE}/api/hub/tasks`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(taskData)
+                });
+            }
+
+            if (response.ok) {
+                closeTaskModal();
+                navigateTo(state.currentView);
+            } else {
+                const error = await response.json();
+                alert('Failed to save task: ' + (error.detail || 'Unknown error'));
+            }
+        } catch (error) {
+            alert('Failed to save task: ' + error.message);
+        } finally {
+            submitBtn.disabled = false;
+            submitBtn.innerHTML = state.modalMode === 'edit' ? `${icons.check} Save Changes` : `${icons.plus} Add Task`;
+        }
     }
 
     // ==================== NAVIGATION ====================
@@ -184,7 +445,7 @@ const ClientHub = (function() {
             const response = await fetch(`${API_BASE}/api/hub/clients`);
             if (response.ok) {
                 const data = await response.json();
-                state.clients = data.clients || [];
+                state.clients = data.clients || data || [];
                 renderClientList();
             }
         } catch (error) {
@@ -211,10 +472,14 @@ const ClientHub = (function() {
 
     async function updateBadgeCounts() {
         try {
-            // Get inbox count
-            const inboxResponse = await fetch(`${API_BASE}/api/hub/views/inbox`);
-            if (inboxResponse.ok) {
-                const data = await inboxResponse.json();
+            const [inboxRes, overdueRes, pendingRes] = await Promise.all([
+                fetch(`${API_BASE}/api/hub/views/inbox`),
+                fetch(`${API_BASE}/api/hub/views/overdue`),
+                fetch(`${API_BASE}/api/hub/views/pending`)
+            ]);
+
+            if (inboxRes.ok) {
+                const data = await inboxRes.json();
                 const count = data.tasks?.length || 0;
                 const badge = document.getElementById('inbox-count');
                 if (badge) {
@@ -223,10 +488,8 @@ const ClientHub = (function() {
                 }
             }
 
-            // Get overdue count
-            const overdueResponse = await fetch(`${API_BASE}/api/hub/views/overdue`);
-            if (overdueResponse.ok) {
-                const data = await overdueResponse.json();
+            if (overdueRes.ok) {
+                const data = await overdueRes.json();
                 const count = data.tasks?.length || 0;
                 const badge = document.getElementById('overdue-count');
                 if (badge) {
@@ -235,10 +498,8 @@ const ClientHub = (function() {
                 }
             }
 
-            // Get pending count
-            const pendingResponse = await fetch(`${API_BASE}/api/hub/views/pending`);
-            if (pendingResponse.ok) {
-                const data = await pendingResponse.json();
+            if (pendingRes.ok) {
+                const data = await pendingRes.json();
                 const count = data.tasks?.length || 0;
                 const badge = document.getElementById('pending-count');
                 if (badge) {
@@ -260,23 +521,27 @@ const ClientHub = (function() {
             if (!response.ok) throw new Error('Failed to load');
             const data = await response.json();
 
-            const { meetings = [], morning_tasks = [], afternoon_tasks = [], evening_tasks = [], unscheduled_tasks = [], capacity_used = 0, capacity_total = 360 } = data;
+            const { meetings = [], morning_tasks = [], afternoon_tasks = [], evening_tasks = [], unscheduled_tasks = [], capacity_used_minutes = 0, capacity_total_minutes = 360 } = data;
 
             let html = `
                 <div class="quick-add">
-                    <input type="text" id="quick-add-input" class="quick-add-input" placeholder="Add task: @client p1 due:tomorrow #morning ~30m" />
+                    <button class="add-task-btn" onclick="ClientHub.openTaskModal()">
+                        ${icons.plus} Add Task
+                    </button>
+                    <span class="quick-add-or">or quick add:</span>
+                    <input type="text" id="quick-add-input" class="quick-add-input" placeholder="@client p1 due:tomorrow #morning ~30m" style="flex: 1;" />
                     <button class="quick-add-btn" onclick="ClientHub.quickAddTask()">
-                        ${icons.plus} Add
+                        Add
                     </button>
                 </div>
 
                 <div class="capacity-meter">
                     <div class="capacity-header">
                         <span class="capacity-label">Today's Capacity</span>
-                        <span class="capacity-value">${Math.round(capacity_used / 60)}h / ${Math.round(capacity_total / 60)}h</span>
+                        <span class="capacity-value">${Math.round(capacity_used_minutes / 60)}h / ${Math.round(capacity_total_minutes / 60)}h</span>
                     </div>
                     <div class="capacity-bar">
-                        <div class="capacity-fill ${capacity_used > capacity_total ? 'danger' : capacity_used > capacity_total * 0.8 ? 'warning' : ''}" style="width: ${Math.min(100, (capacity_used / capacity_total) * 100)}%"></div>
+                        <div class="capacity-fill ${capacity_used_minutes > capacity_total_minutes ? 'danger' : capacity_used_minutes > capacity_total_minutes * 0.8 ? 'warning' : ''}" style="width: ${Math.min(100, (capacity_used_minutes / capacity_total_minutes) * 100)}%"></div>
                     </div>
                 </div>
             `;
@@ -320,7 +585,7 @@ const ClientHub = (function() {
                     <div class="empty-state">
                         <div class="empty-state-icon">${icons.completed}</div>
                         <h3>All clear!</h3>
-                        <p>No tasks for today. Enjoy your day or add some tasks above.</p>
+                        <p>No tasks for today. Click "Add Task" to create one.</p>
                     </div>
                 `;
             }
@@ -420,27 +685,36 @@ const ClientHub = (function() {
 
             const tasks = data.tasks || [];
 
+            let html = `
+                <div class="quick-add" style="margin-bottom: 1.5rem;">
+                    <button class="add-task-btn" onclick="ClientHub.openTaskModal()">
+                        ${icons.plus} Add Task
+                    </button>
+                </div>
+            `;
+
             if (tasks.length === 0) {
-                container.innerHTML = `
+                html += `
                     <div class="empty-state">
                         <div class="empty-state-icon">${icons.inbox}</div>
                         <h3>Inbox Zero!</h3>
                         <p>All tasks have been triaged.</p>
                     </div>
                 `;
-                return;
+            } else {
+                html += `
+                    <div class="task-section">
+                        <div class="task-section-header">
+                            ${icons.inbox}
+                            <span class="task-section-title">Needs Triage</span>
+                            <span class="task-section-count">${tasks.length}</span>
+                        </div>
+                        ${tasks.map(t => renderTaskCard(t)).join('')}
+                    </div>
+                `;
             }
 
-            container.innerHTML = `
-                <div class="task-section">
-                    <div class="task-section-header">
-                        ${icons.inbox}
-                        <span class="task-section-title">Needs Triage</span>
-                        <span class="task-section-count">${tasks.length}</span>
-                    </div>
-                    ${tasks.map(t => renderTaskCard(t)).join('')}
-                </div>
-            `;
+            container.innerHTML = html;
         } catch (error) {
             container.innerHTML = `<div class="empty-state"><p>${escapeHtml(error.message)}</p></div>`;
         }
@@ -651,7 +925,7 @@ const ClientHub = (function() {
             if (!response.ok) throw new Error('Failed to load');
             const data = await response.json();
 
-            const clients = data.clients || [];
+            const clients = data.clients || data || [];
 
             if (clients.length === 0) {
                 container.innerHTML = `
@@ -851,15 +1125,6 @@ const ClientHub = (function() {
     }
 
     // ==================== TASK ACTIONS ====================
-    function setupQuickAdd() {
-        document.addEventListener('keydown', (e) => {
-            if (e.key === 'Enter' && e.target.id === 'quick-add-input') {
-                e.preventDefault();
-                quickAddTask();
-            }
-        });
-    }
-
     async function quickAddTask() {
         const input = document.getElementById('quick-add-input');
         if (!input) return;
@@ -867,7 +1132,6 @@ const ClientHub = (function() {
         const text = input.value.trim();
         if (!text) return;
 
-        // Parse quick add syntax
         const parsed = parseQuickAdd(text);
 
         try {
@@ -879,7 +1143,7 @@ const ClientHub = (function() {
 
             if (response.ok) {
                 input.value = '';
-                navigateTo(state.currentView); // Refresh current view
+                navigateTo(state.currentView);
             } else {
                 const error = await response.json();
                 alert('Failed to add task: ' + (error.detail || 'Unknown error'));
@@ -908,14 +1172,14 @@ const ClientHub = (function() {
             title = title.replace(/@\w+\s*/g, '');
         }
 
-        // Extract priority (p0, p1, p2, p3)
+        // Extract priority
         const priorityMatch = text.match(/\bp([0-3])\b/i);
         if (priorityMatch) {
             task.priority = `P${priorityMatch[1]}`;
             title = title.replace(/\bp[0-3]\b\s*/gi, '');
         }
 
-        // Extract due date (due:tomorrow, due:monday, due:2024-01-15)
+        // Extract due date
         const dueMatch = text.match(/due:(\S+)/i);
         if (dueMatch) {
             const dueStr = dueMatch[1].toLowerCase();
@@ -932,7 +1196,7 @@ const ClientHub = (function() {
             title = title.replace(/due:\S+\s*/gi, '');
         }
 
-        // Extract time estimate (~30m, ~1h)
+        // Extract time estimate
         const timeMatch = text.match(/~(\d+)(m|h)/i);
         if (timeMatch) {
             const value = parseInt(timeMatch[1]);
@@ -941,7 +1205,7 @@ const ClientHub = (function() {
             title = title.replace(/~\d+[mh]\s*/gi, '');
         }
 
-        // Extract timebox (#morning, #afternoon, #evening)
+        // Extract timebox
         const timeboxMatch = text.match(/#(morning|afternoon|evening)/i);
         if (timeboxMatch) {
             task.timebox_bucket = timeboxMatch[1].toUpperCase();
@@ -970,9 +1234,17 @@ const ClientHub = (function() {
         }
     }
 
-    function openTask(taskId) {
-        // TODO: Implement task detail modal/view
-        console.log('Open task:', taskId);
+    async function openTask(taskId) {
+        // Fetch task details and open edit modal
+        try {
+            const response = await fetch(`${API_BASE}/api/hub/tasks/${taskId}`);
+            if (response.ok) {
+                const task = await response.json();
+                openTaskModal('edit', task);
+            }
+        } catch (error) {
+            console.error('Failed to load task:', error);
+        }
     }
 
     // ==================== UTILITIES ====================
@@ -998,9 +1270,6 @@ const ClientHub = (function() {
         const today = new Date();
         today.setHours(0, 0, 0, 0);
 
-        const tomorrow = new Date(today);
-        tomorrow.setDate(tomorrow.getDate() + 1);
-
         const diff = Math.floor((date - today) / (1000 * 60 * 60 * 24));
 
         if (diff < 0) return `${Math.abs(diff)}d overdue`;
@@ -1015,6 +1284,9 @@ const ClientHub = (function() {
     return {
         init,
         navigateTo,
+        openTaskModal,
+        closeTaskModal,
+        handleTaskSubmit,
         quickAddTask,
         toggleTaskStatus,
         openTask,
@@ -1024,10 +1296,8 @@ const ClientHub = (function() {
 
 // Initialize when DOM is ready
 document.addEventListener('DOMContentLoaded', () => {
-    // Only initialize if we're on the Client Hub tab
     const hubContainer = document.getElementById('tab-client-hub');
     if (hubContainer) {
-        // Delay init until tab is first shown
         const observer = new MutationObserver((mutations) => {
             mutations.forEach((mutation) => {
                 if (mutation.target.classList.contains('active')) {
@@ -1039,7 +1309,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
         observer.observe(hubContainer, { attributes: true, attributeFilter: ['class'] });
 
-        // Also init if already active
         if (hubContainer.classList.contains('active')) {
             ClientHub.init();
         }
