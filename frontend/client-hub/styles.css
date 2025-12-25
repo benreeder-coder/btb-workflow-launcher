@@ -289,9 +289,13 @@
     background: rgba(168, 85, 247, 0.08);
 }
 
-.task-section-header svg:first-child {
+/* Constrain ALL svgs in section header to icon size */
+.task-section-header svg {
     width: 14px;
     height: 14px;
+    min-width: 14px;
+    max-width: 14px;
+    flex-shrink: 0;
     color: var(--accent);
 }
 
