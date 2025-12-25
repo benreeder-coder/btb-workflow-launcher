@@ -530,7 +530,16 @@ const ClientHub = (function() {
 
         try {
             const response = await fetch(`${API_BASE}/api/hub/views/today`);
-            if (!response.ok) throw new Error('Failed to load');
+            if (!response.ok) {
+                let errorMsg = `HTTP ${response.status}`;
+                try {
+                    const errData = await response.json();
+                    errorMsg = errData.detail || JSON.stringify(errData);
+                } catch {
+                    errorMsg = await response.text() || errorMsg;
+                }
+                throw new Error(errorMsg);
+            }
             const data = await response.json();
 
             const { meetings = [], morning_tasks = [], afternoon_tasks = [], evening_tasks = [], unscheduled_tasks = [], capacity_used_minutes = 0, capacity_total_minutes = 360 } = data;
