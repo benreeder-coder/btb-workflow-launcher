@@ -7,6 +7,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/client-hub/styles.css">
     <style>
         :root {
             --bg-void: #050508;
@@ -701,6 +702,12 @@
                     </svg>
                     Chat
                 </button>
+                <button class="tab-btn" data-tab="client-hub">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/>
+                    </svg>
+                    Client Hub
+                </button>
             </nav>
         </header>
 
@@ -762,6 +769,31 @@
                                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
                             </button>
                         </div>
+                    </div>
+                </main>
+            </div>
+        </div>
+
+        <!-- Client Hub Tab -->
+        <div id="tab-client-hub" class="tab-content">
+            <div class="hub-container">
+                <aside class="hub-sidebar">
+                    <div class="hub-sidebar-header">
+                        <span class="hub-sidebar-title">Client Hub</span>
+                    </div>
+                    <nav id="hub-sidebar-nav" class="hub-nav">
+                        <!-- Populated by JavaScript -->
+                    </nav>
+                </aside>
+                <main class="hub-main">
+                    <div class="hub-main-header">
+                        <div>
+                            <h1 id="hub-main-title" class="hub-main-title">Today</h1>
+                            <p id="hub-main-subtitle" class="hub-main-subtitle"></p>
+                        </div>
+                    </div>
+                    <div id="hub-main-content" class="hub-main-content">
+                        <!-- Populated by JavaScript -->
                     </div>
                 </main>
             </div>
@@ -1173,5 +1205,6 @@
             return 'chat_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
         }
     </script>
+    <script src="/client-hub/app.js"></script>
 </body>
 </html>

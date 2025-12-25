@@ -6,6 +6,7 @@ FastAPI backend that:
 - Returns workflow details with inputs and defaults
 - Executes workflows via their execution scripts
 - Serves the frontend
+- Client Hub: Task management with Supabase backend
 """
 
 import json
@@ -14,6 +15,10 @@ import subprocess
 import sys
 from pathlib import Path
 from typing import Any
+
+# Load environment variables from .env file
+from dotenv import load_dotenv
+load_dotenv()
 
 # Add execution directory to path for imports
 sys.path.insert(0, str(Path(__file__).parent))
@@ -25,6 +30,15 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
 from directive_parser import parse_directive, scan_directives
+
+# Import Client Hub router (conditional to avoid errors if Supabase not configured)
+try:
+    from client_hub.router import router as client_hub_router
+    from client_hub.webhooks import router as webhooks_router
+    CLIENT_HUB_AVAILABLE = True
+except ImportError as e:
+    CLIENT_HUB_AVAILABLE = False
+    print(f"Client Hub not available: {e}")
 
 # Paths
 PROJECT_ROOT = Path(__file__).parent.parent
@@ -46,6 +60,11 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# Include Client Hub routers if available
+if CLIENT_HUB_AVAILABLE:
+    app.include_router(client_hub_router)
+    app.include_router(webhooks_router)
 
 
 class WorkflowRunRequest(BaseModel):
@@ -179,6 +198,10 @@ def serve_frontend():
 # Mount static assets if the folder exists
 if (FRONTEND_DIR / "assets").exists():
     app.mount("/assets", StaticFiles(directory=FRONTEND_DIR / "assets"), name="assets")
+
+# Mount client-hub static files if the folder exists
+if (FRONTEND_DIR / "client-hub").exists():
+    app.mount("/client-hub", StaticFiles(directory=FRONTEND_DIR / "client-hub"), name="client-hub")
 
 
 if __name__ == "__main__":
