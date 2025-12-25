@@ -8,7 +8,7 @@ This module provides database operations for:
 - Activity logging
 - Settings
 """
-from datetime import date, datetime, time, timedelta
+from datetime import date, datetime, time, timedelta, timezone
 from typing import Optional, List, Dict, Any, Tuple
 from uuid import UUID
 import json
@@ -789,8 +789,13 @@ def get_today_tasks(
         # Filter out snoozed tasks
         if row.get("snooze_until"):
             snooze_until = _parse_datetime(row["snooze_until"])
-            if snooze_until and snooze_until > datetime.utcnow():
-                continue
+            if snooze_until:
+                now = datetime.now(timezone.utc)
+                # Make snooze_until timezone-aware if it isn't
+                if snooze_until.tzinfo is None:
+                    snooze_until = snooze_until.replace(tzinfo=timezone.utc)
+                if snooze_until > now:
+                    continue
 
         task = get_task(supabase, UUID(row["id"]))
         if task:

@@ -4,7 +4,7 @@ Task Ranking Algorithm for Client Hub.
 Calculates priority scores for tasks based on configurable weights.
 Higher score = higher priority (appears first in lists).
 """
-from datetime import date, datetime
+from datetime import date, datetime, timezone
 from typing import List, Optional
 
 from .models import Task, TaskWithSubtasks, TaskStatus, TaskPriority, Settings, RankingWeights
@@ -77,7 +77,13 @@ def calculate_task_rank(
 
     # 6. Age bonus (slight FIFO preference for similar tasks)
     if task.created_at:
-        age_days = (datetime.utcnow() - task.created_at).days
+        # Use timezone-aware datetime for comparison
+        now = datetime.now(timezone.utc)
+        # Make created_at timezone-aware if it isn't
+        created = task.created_at
+        if created.tzinfo is None:
+            created = created.replace(tzinfo=timezone.utc)
+        age_days = (now - created).days
         score += min(age_days * 0.1, 5)  # Max +5 points for age
 
     return round(score, 2)
