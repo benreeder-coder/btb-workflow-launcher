@@ -128,12 +128,30 @@ class Client(ClientBase):
     """Full client model with database fields."""
     id: UUID
     last_touched_at: Optional[datetime] = None
-    created_at: datetime
-    updated_at: datetime
+    created_at: Optional[datetime] = None
+    updated_at: Optional[datetime] = None
     archived_at: Optional[datetime] = None
 
     class Config:
         from_attributes = True
+
+    @field_validator('created_at', 'updated_at', 'archived_at', 'last_touched_at', mode='before')
+    @classmethod
+    def parse_datetime(cls, v):
+        """Parse datetime from string format."""
+        if v is None or v == '':
+            return None
+        if isinstance(v, datetime):
+            return v
+        if isinstance(v, str):
+            try:
+                if 'T' in v:
+                    return datetime.fromisoformat(v.replace('Z', '+00:00'))
+                else:
+                    return datetime.fromisoformat(v)
+            except ValueError:
+                pass
+        return v
 
 
 class ClientWithCounts(Client):
@@ -179,12 +197,30 @@ class Subtask(SubtaskBase):
     id: UUID
     task_id: UUID
     order_rank: int = 0
-    created_at: datetime
-    updated_at: datetime
+    created_at: Optional[datetime] = None
+    updated_at: Optional[datetime] = None
     completed_at: Optional[datetime] = None
 
     class Config:
         from_attributes = True
+
+    @field_validator('created_at', 'updated_at', 'completed_at', mode='before')
+    @classmethod
+    def parse_datetime(cls, v):
+        """Parse datetime from string format."""
+        if v is None or v == '':
+            return None
+        if isinstance(v, datetime):
+            return v
+        if isinstance(v, str):
+            try:
+                if 'T' in v:
+                    return datetime.fromisoformat(v.replace('Z', '+00:00'))
+                else:
+                    return datetime.fromisoformat(v)
+            except ValueError:
+                pass
+        return v
 
 
 # ============================================
@@ -462,12 +498,30 @@ class CalendarEvent(CalendarEventBase):
     match_method: Optional[str] = None
     etag: Optional[str] = None
     raw: Optional[Dict[str, Any]] = None
-    synced_at: datetime
-    created_at: datetime
-    updated_at: datetime
+    synced_at: Optional[datetime] = None
+    created_at: Optional[datetime] = None
+    updated_at: Optional[datetime] = None
 
     class Config:
         from_attributes = True
+
+    @field_validator('start_time', 'end_time', 'synced_at', 'created_at', 'updated_at', mode='before')
+    @classmethod
+    def parse_datetime(cls, v):
+        """Parse datetime from string format."""
+        if v is None or v == '':
+            return None
+        if isinstance(v, datetime):
+            return v
+        if isinstance(v, str):
+            try:
+                if 'T' in v:
+                    return datetime.fromisoformat(v.replace('Z', '+00:00'))
+                else:
+                    return datetime.fromisoformat(v)
+            except ValueError:
+                pass
+        return v
 
 
 # ============================================
