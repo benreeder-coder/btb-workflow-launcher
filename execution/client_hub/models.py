@@ -308,14 +308,14 @@ class Task(TaskBase):
     schema_version: int = 1
 
     # Edit tracking
-    last_edited_source: SourceType = SourceType.MANUAL
+    last_edited_source: Optional[str] = "MANUAL"  # Changed to str to avoid enum parsing issues
     last_edited_at: Optional[datetime] = None
     manually_edited: bool = False
     manual_fields: List[str] = Field(default_factory=list)
 
     # Timestamps
-    created_at: datetime
-    updated_at: datetime
+    created_at: Optional[datetime] = None  # Made optional with default
+    updated_at: Optional[datetime] = None  # Made optional with default
     completed_at: Optional[datetime] = None
     archived_at: Optional[datetime] = None
 
@@ -324,6 +324,46 @@ class Task(TaskBase):
 
     class Config:
         from_attributes = True
+
+    @field_validator('created_at', 'updated_at', 'completed_at', 'archived_at', 'last_edited_at', 'snooze_until', 'next_occurrence_at', mode='before')
+    @classmethod
+    def parse_datetime(cls, v):
+        """Parse datetime from string format."""
+        if v is None or v == '':
+            return None
+        if isinstance(v, datetime):
+            return v
+        if isinstance(v, str):
+            # Try ISO format
+            try:
+                # Handle various ISO formats
+                if 'T' in v:
+                    return datetime.fromisoformat(v.replace('Z', '+00:00'))
+                else:
+                    return datetime.fromisoformat(v)
+            except ValueError:
+                pass
+        return v
+
+    @field_validator('due_time', mode='before')
+    @classmethod
+    def parse_task_time(cls, v):
+        """Parse time from string format."""
+        if v is None or v == '':
+            return None
+        if isinstance(v, time):
+            return v
+        if isinstance(v, str):
+            try:
+                if ':' in v:
+                    parts = v.split(':')
+                    if len(parts) == 2:
+                        return time(int(parts[0]), int(parts[1]))
+                    elif len(parts) == 3:
+                        return time(int(parts[0]), int(parts[1]), int(parts[2]))
+            except (ValueError, IndexError):
+                pass
+        return v
 
 
 class TaskWithSubtasks(Task):
