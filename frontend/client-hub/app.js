@@ -37,6 +37,7 @@ const ClientHub = (function() {
         morning: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>`,
         afternoon: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="5"/><path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/></svg>`,
         evening: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>`,
+        chevron: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>`,
     };
 
     // ==================== INITIALIZATION ====================
@@ -624,17 +625,36 @@ const ClientHub = (function() {
         }
     }
 
-    function renderTaskSection(title, icon, tasks) {
+    function renderTaskSection(title, icon, tasks, sectionId = null) {
+        const id = sectionId || title.toLowerCase().replace(/\s+/g, '-');
         return `
-            <div class="task-section">
-                <div class="task-section-header">
+            <div class="task-section" id="section-${id}">
+                <div class="task-section-header" onclick="ClientHub.toggleSection('${id}')">
+                    <span class="collapse-icon">${icons.chevron || '▼'}</span>
                     ${icon}
                     <span class="task-section-title">${title}</span>
                     <span class="task-section-count">${tasks.length}</span>
                 </div>
-                ${tasks.map(t => renderTaskCard(t)).join('')}
+                <div class="task-section-content">
+                    <div class="task-list-header">
+                        <span></span>
+                        <span>Task</span>
+                        <span>Client</span>
+                        <span>Due</span>
+                        <span>Status</span>
+                        <span>Priority</span>
+                    </div>
+                    ${tasks.map(t => renderTaskRow(t)).join('')}
+                </div>
             </div>
         `;
+    }
+
+    function toggleSection(sectionId) {
+        const section = document.getElementById(`section-${sectionId}`);
+        if (section) {
+            section.classList.toggle('collapsed');
+        }
     }
 
     function renderMeetingCard(meeting) {
@@ -648,36 +668,62 @@ const ClientHub = (function() {
         `;
     }
 
-    function renderTaskCard(task) {
+    function renderTaskRow(task) {
         const isCompleted = task.status === 'COMPLETED';
         const isOverdue = task.due_date && new Date(task.due_date) < new Date() && !isCompleted;
         const isPending = task.status === 'PENDING';
 
-        let cardClass = 'task-card';
-        if (isCompleted) cardClass += ' completed';
-        if (isOverdue && isPending) cardClass += ' overdue-pending';
-        else if (isOverdue) cardClass += ' overdue';
-        else if (isPending) cardClass += ' pending';
+        let rowClass = 'task-row';
+        if (isCompleted) rowClass += ' completed';
+        if (isOverdue) rowClass += ' overdue';
+        if (isPending) rowClass += ' pending';
 
-        const priorityClass = `priority ${task.priority?.toLowerCase() || 'p2'}`;
+        const statusOptions = [
+            { value: 'NOT_STARTED', label: 'To Do' },
+            { value: 'IN_PROGRESS', label: 'In Progress' },
+            { value: 'PENDING', label: 'Pending' },
+            { value: 'COMPLETED', label: 'Done' }
+        ];
+
+        const priorityOptions = [
+            { value: 'P0', label: 'P0' },
+            { value: 'P1', label: 'P1' },
+            { value: 'P2', label: 'P2' },
+            { value: 'P3', label: 'P3' }
+        ];
 
         return `
-            <div class="${cardClass}" onclick="ClientHub.openTask('${task.id}')">
-                <div class="task-card-header">
-                    <div class="task-checkbox ${isCompleted ? 'checked' : ''}" onclick="event.stopPropagation(); ClientHub.toggleTaskStatus('${task.id}', '${task.status}')">
-                        ${icons.check}
-                    </div>
+            <div class="${rowClass}">
+                <div class="task-checkbox ${isCompleted ? 'checked' : ''}" onclick="event.stopPropagation(); ClientHub.toggleTaskStatus('${task.id}', '${task.status}')">
+                    ${icons.check}
+                </div>
+                <div class="task-title-cell" onclick="ClientHub.openTask('${task.id}')">
                     <span class="task-title">${escapeHtml(task.title)}</span>
+                    ${task.estimated_minutes ? `<span class="task-time-badge">${task.estimated_minutes}m</span>` : ''}
                 </div>
-                <div class="task-meta">
-                    <span class="task-badge ${priorityClass}">${task.priority || 'P2'}</span>
-                    ${task.due_date ? `<span class="task-badge due ${isOverdue ? 'overdue' : task.due_date === new Date().toISOString().split('T')[0] ? 'today' : ''}">${icons.clock} ${formatDueDate(task.due_date)}</span>` : ''}
-                    ${task.client ? `<span class="task-badge client">${escapeHtml(task.client.name)}</span>` : ''}
-                    ${task.estimated_minutes ? `<span class="task-badge time">${task.estimated_minutes}m</span>` : ''}
+                <div class="task-client-cell">
+                    ${task.client ? `<span class="client-badge" style="--client-color: ${task.client.color_hex || '#a855f7'}">${escapeHtml(task.client.name)}</span>` : '<span class="empty-cell">—</span>'}
                 </div>
-                ${task.subtasks?.length > 0 ? renderSubtaskProgress(task.subtasks) : ''}
+                <div class="task-due-cell ${isOverdue ? 'overdue' : ''}">
+                    ${task.due_date ? formatDueDate(task.due_date) : '<span class="empty-cell">—</span>'}
+                </div>
+                <select class="inline-select status-select ${task.status?.toLowerCase().replace('_', '-')}"
+                        onchange="ClientHub.updateTaskField('${task.id}', 'status', this.value)"
+                        onclick="event.stopPropagation()">
+                    ${statusOptions.map(opt => `<option value="${opt.value}" ${task.status === opt.value ? 'selected' : ''}>${opt.label}</option>`).join('')}
+                </select>
+                <select class="inline-select priority-select ${task.priority?.toLowerCase()}"
+                        onchange="ClientHub.updateTaskField('${task.id}', 'priority', this.value)"
+                        onclick="event.stopPropagation()">
+                    ${priorityOptions.map(opt => `<option value="${opt.value}" ${task.priority === opt.value ? 'selected' : ''}>${opt.label}</option>`).join('')}
+                </select>
             </div>
         `;
+    }
+
+    // Keep old renderTaskCard for views that still need it (will phase out)
+    function renderTaskCard(task) {
+        return renderTaskRow(task);
     }
 
     function renderSubtaskProgress(subtasks) {
@@ -1317,6 +1363,27 @@ const ClientHub = (function() {
         }
     }
 
+    async function updateTaskField(taskId, field, value) {
+        try {
+            const response = await fetch(`${API_BASE}/api/hub/tasks/${taskId}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ [field]: value })
+            });
+
+            if (!response.ok) {
+                throw new Error('Failed to update');
+            }
+
+            // Refresh the current view
+            navigateTo(state.currentView);
+        } catch (error) {
+            console.error('Failed to update task field:', error);
+            // Refresh to restore original value
+            navigateTo(state.currentView);
+        }
+    }
+
     // ==================== UTILITIES ====================
     function escapeHtml(text) {
         const div = document.createElement('div');
@@ -1361,6 +1428,8 @@ const ClientHub = (function() {
         toggleTaskStatus,
         openTask,
         saveSettings,
+        toggleSection,
+        updateTaskField,
     };
 })();
 
