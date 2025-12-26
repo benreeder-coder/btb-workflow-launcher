@@ -93,7 +93,9 @@ def upsert_tasks(
                     existing = existing_result.data[0]
 
             # Fallback: look by source_type + source_id
-            if not existing and task_data.source_id:
+            # Only use fallback if NO idempotency_key was provided
+            # (otherwise multiple tasks from same source would collide)
+            if not existing and task_data.source_id and not task_data.idempotency_key:
                 existing_result = db.table("tasks").select("*").eq(
                     "source_type", task_data.source_type.value
                 ).eq("source_id", task_data.source_id).execute()
