@@ -825,20 +825,32 @@ const ClientHub = (function() {
             { value: 'P3', label: 'P3' }
         ];
 
+        // Build client select options
+        const clientOptions = state.clients.map(c =>
+            `<option value="${c.id}" ${task.client_id === c.id ? 'selected' : ''}>${escapeHtml(c.name)}</option>`
+        ).join('');
+
         return `
-            <div class="${rowClass}">
+            <div class="${rowClass}" data-task-id="${task.id}">
                 <div class="task-checkbox ${isCompleted ? 'checked' : ''}" onclick="event.stopPropagation(); ClientHub.toggleTaskStatus('${task.id}', '${task.status}')">
                     ${icons.check}
                 </div>
-                <div class="task-title-cell" onclick="ClientHub.openTask('${task.id}')">
-                    <span class="task-title">${escapeHtml(task.title)}</span>
+                <div class="task-title-cell" onclick="ClientHub.startInlineEdit('${task.id}', 'title', this)">
+                    <span class="task-title editable-field">${escapeHtml(task.title)}</span>
                     ${task.estimated_minutes ? `<span class="task-time-badge">${task.estimated_minutes}m</span>` : ''}
                 </div>
                 <div class="task-client-cell">
-                    ${task.client ? `<span class="client-badge" style="--client-color: ${task.client.color_hex || '#a855f7'}">${escapeHtml(task.client.name)}</span>` : '<span class="empty-cell">—</span>'}
+                    <select class="inline-select client-select"
+                            onchange="ClientHub.updateTaskField('${task.id}', 'client_id', this.value || null)"
+                            onclick="event.stopPropagation()">
+                        <option value="">No client</option>
+                        ${clientOptions}
+                    </select>
                 </div>
-                <div class="task-due-cell ${isOverdue ? 'overdue' : ''}">
-                    ${task.due_date ? formatDueDate(task.due_date) : '<span class="empty-cell">—</span>'}
+                <div class="task-due-cell ${isOverdue ? 'overdue' : ''}" onclick="event.stopPropagation()">
+                    <input type="date" class="inline-date" value="${task.due_date || ''}"
+                           onchange="ClientHub.updateTaskField('${task.id}', 'due_date', this.value || null)" />
+                    <span class="due-date-display">${task.due_date ? formatDueDate(task.due_date) : '—'}</span>
                 </div>
                 <select class="inline-select status-select ${task.status?.toLowerCase().replace('_', '-')}"
                         onchange="ClientHub.updateTaskField('${task.id}', 'status', this.value)"
@@ -1208,9 +1220,15 @@ const ClientHub = (function() {
             if (!clientRes.ok) throw new Error('Failed to load client');
 
             const client = await clientRes.json();
-            const allTasks = tasksRes.ok ? await tasksRes.json() : [];
+            let allTasks = tasksRes.ok ? await tasksRes.json() : [];
             const callsData = callsRes.ok ? await callsRes.json() : { calls: [] };
             const calls = callsData.calls || [];
+
+            // Inject client info into all tasks (since they all belong to this client)
+            allTasks = allTasks.map(t => ({
+                ...t,
+                client: { id: client.id, name: client.name, color_hex: client.color_hex }
+            }));
 
             // Sort calls by date descending (most recent first)
             calls.sort((a, b) => new Date(b.call_date) - new Date(a.call_date));
@@ -1643,6 +1661,51 @@ const ClientHub = (function() {
         }
     }
 
+    function startInlineEdit(taskId, field, cellElement) {
+        event.stopPropagation();
+
+        // Get the current text
+        const titleSpan = cellElement.querySelector('.task-title');
+        if (!titleSpan) return;
+
+        const currentValue = titleSpan.textContent;
+
+        // Replace with input
+        const input = document.createElement('input');
+        input.type = 'text';
+        input.className = 'inline-title-input';
+        input.value = currentValue;
+
+        // Save on blur or Enter
+        const saveEdit = async () => {
+            const newValue = input.value.trim();
+            if (newValue && newValue !== currentValue) {
+                await updateTaskField(taskId, field, newValue);
+            } else {
+                // Restore original if empty or unchanged
+                navigateTo(state.currentView);
+            }
+        };
+
+        input.addEventListener('blur', saveEdit);
+        input.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                input.blur();
+            }
+            if (e.key === 'Escape') {
+                input.value = currentValue;
+                input.blur();
+            }
+        });
+
+        // Replace content
+        titleSpan.style.display = 'none';
+        cellElement.insertBefore(input, titleSpan);
+        input.focus();
+        input.select();
+    }
+
     // ==================== UTILITIES ====================
     function escapeHtml(text) {
         const div = document.createElement('div');
@@ -1689,6 +1752,7 @@ const ClientHub = (function() {
         saveSettings,
         toggleSection,
         updateTaskField,
+        startInlineEdit,
         // Filter functions
         updateFilter,
         clearFilters,
