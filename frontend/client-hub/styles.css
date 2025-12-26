@@ -1396,3 +1396,141 @@
 .stat-value.danger {
     color: #ef4444;
 }
+
+/* Client Tabs */
+.client-tabs {
+    display: flex;
+    gap: 0.5rem;
+    margin-bottom: 1.5rem;
+    border-bottom: 1px solid var(--border-subtle);
+    padding-bottom: 0.5rem;
+}
+
+.client-tab {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.75rem 1.25rem;
+    background: transparent;
+    border: none;
+    border-radius: 8px 8px 0 0;
+    color: var(--text-secondary);
+    font-family: var(--font-display);
+    font-size: 0.875rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.client-tab:hover {
+    color: var(--text-primary);
+    background: var(--bg-elevated);
+}
+
+.client-tab.active {
+    color: var(--accent-light);
+    background: var(--accent-glow);
+    border-bottom: 2px solid var(--accent);
+}
+
+.client-tab svg {
+    width: 16px;
+    height: 16px;
+}
+
+/* Calls List */
+.calls-list {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+}
+
+.call-card {
+    background: var(--bg-elevated);
+    border: 1px solid var(--border-subtle);
+    border-radius: 12px;
+    padding: 1.25rem;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.call-card:hover {
+    border-color: var(--border-glow);
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+.call-card-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 0.75rem;
+}
+
+.call-date-time {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+}
+
+.call-date {
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: var(--text-primary);
+}
+
+.call-time {
+    font-size: 0.75rem;
+    color: var(--text-secondary);
+}
+
+.call-duration {
+    font-size: 0.7rem;
+    padding: 0.15rem 0.5rem;
+    background: var(--bg-base);
+    border-radius: 4px;
+    color: var(--text-muted);
+}
+
+.call-link {
+    font-size: 0.75rem;
+    color: var(--accent-light);
+    text-decoration: none;
+    padding: 0.35rem 0.75rem;
+    border: 1px solid var(--border-glow);
+    border-radius: 6px;
+    transition: all 0.2s;
+}
+
+.call-link:hover {
+    background: var(--accent-glow);
+    border-color: var(--accent);
+}
+
+.call-title {
+    font-size: 1rem;
+    font-weight: 600;
+    color: var(--text-primary);
+    margin-bottom: 0.5rem;
+}
+
+.call-summary {
+    font-size: 0.85rem;
+    color: var(--text-secondary);
+    line-height: 1.5;
+    margin-bottom: 0.75rem;
+}
+
+.call-keywords {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+}
+
+.call-keyword {
+    font-size: 0.7rem;
+    padding: 0.2rem 0.6rem;
+    background: var(--accent-glow);
+    color: var(--accent-light);
+    border-radius: 4px;
+}

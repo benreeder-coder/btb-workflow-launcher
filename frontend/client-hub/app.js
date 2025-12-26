@@ -636,32 +636,14 @@ const ClientHub = (function() {
             let openTasks = allTasks.filter(t => t.status !== 'COMPLETED' && !t.archived_at);
             openTasks = filterTasks(openTasks);
 
-            // Group tasks by due date category
-            const today = new Date();
-            today.setHours(0, 0, 0, 0);
-            const tomorrow = new Date(today);
-            tomorrow.setDate(tomorrow.getDate() + 1);
+            // Use date strings (YYYY-MM-DD) for reliable comparison - avoids timezone issues
+            const todayStr = new Date().toISOString().split('T')[0];
 
-            const overdue = [];
-            const dueToday = [];
-            const upcoming = [];
-            const noDueDate = [];
-
-            openTasks.forEach(task => {
-                if (!task.due_date) {
-                    noDueDate.push(task);
-                } else {
-                    const dueDate = new Date(task.due_date);
-                    dueDate.setHours(0, 0, 0, 0);
-                    if (dueDate < today) {
-                        overdue.push(task);
-                    } else if (dueDate.getTime() === today.getTime()) {
-                        dueToday.push(task);
-                    } else {
-                        upcoming.push(task);
-                    }
-                }
-            });
+            // Group open tasks by due date - using string comparison
+            const overdue = openTasks.filter(t => t.due_date && t.due_date < todayStr);
+            const dueToday = openTasks.filter(t => t.due_date === todayStr);
+            const upcoming = openTasks.filter(t => t.due_date && t.due_date > todayStr);
+            const noDueDate = openTasks.filter(t => !t.due_date);
 
             // Sort each group by priority then due date
             const sortTasks = (a, b) => {
@@ -1201,36 +1183,39 @@ const ClientHub = (function() {
     }
 
     // ==================== CLIENT DETAIL VIEW ====================
+    let clientDetailTab = 'tasks'; // Track current tab: 'tasks' or 'calls'
+
     async function renderClientDetailView(container, params) {
         container.innerHTML = '<div class="hub-loading"><div class="spinner"></div></div>';
 
         try {
-            const [clientRes, tasksRes] = await Promise.all([
+            // Fetch client, tasks, and calls in parallel
+            const [clientRes, tasksRes, callsRes] = await Promise.all([
                 fetch(`${API_BASE}/api/hub/clients/${params.id}`),
-                fetch(`${API_BASE}/api/hub/tasks?client_id=${params.id}&limit=500`)
+                fetch(`${API_BASE}/api/hub/tasks?client_id=${params.id}&limit=500`),
+                fetch(`${API_BASE}/api/hub/clients/${params.id}/calls?limit=100`)
             ]);
 
             if (!clientRes.ok) throw new Error('Failed to load client');
 
             const client = await clientRes.json();
             const allTasks = tasksRes.ok ? await tasksRes.json() : [];
+            const callsData = callsRes.ok ? await callsRes.json() : { calls: [] };
+            const calls = callsData.calls || [];
 
-            // Group tasks by status
-            const today = new Date();
-            today.setHours(0, 0, 0, 0);
+            // Sort calls by date descending (most recent first)
+            calls.sort((a, b) => new Date(b.call_date) - new Date(a.call_date));
+
+            // Use date strings (YYYY-MM-DD) for reliable comparison
+            const todayStr = new Date().toISOString().split('T')[0];
 
             const openTasks = allTasks.filter(t => t.status !== 'COMPLETED' && !t.archived_at);
             const completedTasks = allTasks.filter(t => t.status === 'COMPLETED');
 
-            // Further group open tasks
-            const overdue = openTasks.filter(t => t.due_date && new Date(t.due_date) < today);
-            const dueToday = openTasks.filter(t => {
-                if (!t.due_date) return false;
-                const d = new Date(t.due_date);
-                d.setHours(0, 0, 0, 0);
-                return d.getTime() === today.getTime();
-            });
-            const upcoming = openTasks.filter(t => t.due_date && new Date(t.due_date) > today);
+            // Group open tasks by due date - using string comparison to avoid timezone issues
+            const overdue = openTasks.filter(t => t.due_date && t.due_date < todayStr);
+            const dueToday = openTasks.filter(t => t.due_date === todayStr);
+            const upcoming = openTasks.filter(t => t.due_date && t.due_date > todayStr);
             const noDueDate = openTasks.filter(t => !t.due_date);
 
             // Sort by priority
@@ -1264,69 +1249,89 @@ const ClientHub = (function() {
                         <span class="stat-label">Open</span>
                     </div>
                     <div class="stat-card">
-                        <span class="stat-value">${completedTasks.length}</span>
-                        <span class="stat-label">Completed</span>
+                        <span class="stat-value">${calls.length}</span>
+                        <span class="stat-label">Calls</span>
                     </div>
                     <div class="stat-card">
                         <span class="stat-value ${client.health_status === 'RED' ? 'danger' : client.health_status === 'YELLOW' ? 'warning' : ''}">${client.health_status || 'GREEN'}</span>
                         <span class="stat-label">Health</span>
                     </div>
                 </div>
+
+                <div class="client-tabs">
+                    <button class="client-tab ${clientDetailTab === 'tasks' ? 'active' : ''}" onclick="ClientHub.switchClientTab('tasks', '${params.id}', '${escapeHtml(params.name || '')}')">
+                        ${icons.inbox} Tasks (${openTasks.length})
+                    </button>
+                    <button class="client-tab ${clientDetailTab === 'calls' ? 'active' : ''}" onclick="ClientHub.switchClientTab('calls', '${params.id}', '${escapeHtml(params.name || '')}')">
+                        ${icons.calendar} Calls (${calls.length})
+                    </button>
+                </div>
             `;
 
-            if (openTasks.length === 0 && completedTasks.length === 0) {
-                html += `
-                    <div class="empty-state">
-                        <div class="empty-state-icon">${icons.inbox}</div>
-                        <h3>No Tasks</h3>
-                        <p>No tasks for this client yet. Click "Add Task" to create one.</p>
-                    </div>
-                `;
-            } else {
-                // Overdue
-                if (overdue.length > 0) {
-                    html += renderTaskSection('Overdue', icons.overdue, overdue, 'client-overdue');
-                }
-
-                // Due Today
-                if (dueToday.length > 0) {
-                    html += renderTaskSection('Due Today', icons.today, dueToday, 'client-today');
-                }
-
-                // Upcoming
-                if (upcoming.length > 0) {
-                    html += renderTaskSection('Upcoming', icons.upcoming, upcoming, 'client-upcoming');
-                }
-
-                // No Due Date
-                if (noDueDate.length > 0) {
-                    html += renderTaskSection('No Due Date', icons.inbox, noDueDate, 'client-nodue');
-                }
-
-                // Completed (collapsed by default)
-                if (completedTasks.length > 0) {
+            if (clientDetailTab === 'tasks') {
+                // Tasks Tab Content
+                if (openTasks.length === 0 && completedTasks.length === 0) {
                     html += `
-                        <div class="task-section collapsed" id="section-client-completed">
-                            <div class="task-section-header" onclick="ClientHub.toggleSection('client-completed')">
-                                <span class="collapse-icon">${icons.chevron || '▼'}</span>
-                                ${icons.completed}
-                                <span class="task-section-title">Completed</span>
-                                <span class="task-section-count">${completedTasks.length}</span>
-                            </div>
-                            <div class="task-section-content">
-                                <div class="task-list-header">
-                                    <span></span>
-                                    <span>Task</span>
-                                    <span>Client</span>
-                                    <span>Due</span>
-                                    <span>Status</span>
-                                    <span>Priority</span>
-                                </div>
-                                ${completedTasks.slice(0, 20).map(t => renderTaskRow(t)).join('')}
-                                ${completedTasks.length > 20 ? `<div class="show-more-hint">+ ${completedTasks.length - 20} more completed tasks</div>` : ''}
-                            </div>
+                        <div class="empty-state">
+                            <div class="empty-state-icon">${icons.inbox}</div>
+                            <h3>No Tasks</h3>
+                            <p>No tasks for this client yet. Click "Add Task" to create one.</p>
                         </div>
                     `;
+                } else {
+                    if (overdue.length > 0) {
+                        html += renderTaskSection('Overdue', icons.overdue, overdue, 'client-overdue');
+                    }
+                    if (dueToday.length > 0) {
+                        html += renderTaskSection('Due Today', icons.today, dueToday, 'client-today');
+                    }
+                    if (upcoming.length > 0) {
+                        html += renderTaskSection('Upcoming', icons.upcoming, upcoming, 'client-upcoming');
+                    }
+                    if (noDueDate.length > 0) {
+                        html += renderTaskSection('No Due Date', icons.inbox, noDueDate, 'client-nodue');
+                    }
+                    if (completedTasks.length > 0) {
+                        html += `
+                            <div class="task-section collapsed" id="section-client-completed">
+                                <div class="task-section-header" onclick="ClientHub.toggleSection('client-completed')">
+                                    <span class="collapse-icon">${icons.chevron || '▼'}</span>
+                                    ${icons.completed}
+                                    <span class="task-section-title">Completed</span>
+                                    <span class="task-section-count">${completedTasks.length}</span>
+                                </div>
+                                <div class="task-section-content">
+                                    <div class="task-list-header">
+                                        <span></span>
+                                        <span>Task</span>
+                                        <span>Client</span>
+                                        <span>Due</span>
+                                        <span>Status</span>
+                                        <span>Priority</span>
+                                    </div>
+                                    ${completedTasks.slice(0, 20).map(t => renderTaskRow(t)).join('')}
+                                    ${completedTasks.length > 20 ? `<div class="show-more-hint">+ ${completedTasks.length - 20} more completed tasks</div>` : ''}
+                                </div>
+                            </div>
+                        `;
+                    }
+                }
+            } else {
+                // Calls Tab Content
+                if (calls.length === 0) {
+                    html += `
+                        <div class="empty-state">
+                            <div class="empty-state-icon">${icons.calendar}</div>
+                            <h3>No Calls</h3>
+                            <p>No call records for this client yet. Calls are imported from Fireflies via n8n.</p>
+                        </div>
+                    `;
+                } else {
+                    html += `<div class="calls-list">`;
+                    calls.forEach(call => {
+                        html += renderCallCard(call);
+                    });
+                    html += `</div>`;
                 }
             }
 
@@ -1334,6 +1339,43 @@ const ClientHub = (function() {
         } catch (error) {
             container.innerHTML = `<div class="empty-state"><p>${escapeHtml(error.message)}</p></div>`;
         }
+    }
+
+    function switchClientTab(tab, clientId, clientName) {
+        clientDetailTab = tab;
+        navigateTo('client-detail', { id: clientId, name: clientName });
+    }
+
+    function renderCallCard(call) {
+        const callDate = new Date(call.call_date);
+        const dateStr = callDate.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+        const timeStr = callDate.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
+        const duration = call.duration_minutes ? `${call.duration_minutes}m` : '';
+
+        return `
+            <div class="call-card" onclick="ClientHub.openCallDetail('${call.id}')">
+                <div class="call-card-header">
+                    <div class="call-date-time">
+                        <span class="call-date">${dateStr}</span>
+                        <span class="call-time">${timeStr}</span>
+                        ${duration ? `<span class="call-duration">${duration}</span>` : ''}
+                    </div>
+                    ${call.transcript_url ? `<a href="${call.transcript_url}" target="_blank" class="call-link" onclick="event.stopPropagation()">View Transcript</a>` : ''}
+                </div>
+                <div class="call-title">${escapeHtml(call.title || 'Untitled Call')}</div>
+                ${call.summary ? `<div class="call-summary">${escapeHtml(call.summary.substring(0, 200))}${call.summary.length > 200 ? '...' : ''}</div>` : ''}
+                ${call.keywords && call.keywords.length > 0 ? `
+                    <div class="call-keywords">
+                        ${call.keywords.slice(0, 5).map(k => `<span class="call-keyword">${escapeHtml(k)}</span>`).join('')}
+                    </div>
+                ` : ''}
+            </div>
+        `;
+    }
+
+    function openCallDetail(callId) {
+        // For now, just log - could expand to show full call detail modal
+        console.log('Open call detail:', callId);
     }
 
     // ==================== CALENDAR VIEW ====================
@@ -1641,6 +1683,9 @@ const ClientHub = (function() {
         updateFilter,
         clearFilters,
         applyFilters,
+        // Client detail functions
+        switchClientTab,
+        openCallDetail,
     };
 })();
 
