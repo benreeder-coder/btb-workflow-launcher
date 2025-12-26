@@ -132,7 +132,8 @@ CREATE TABLE tasks (
 );
 
 CREATE UNIQUE INDEX idx_tasks_idempotency_key ON tasks(idempotency_key) WHERE idempotency_key IS NOT NULL;
-CREATE UNIQUE INDEX idx_tasks_source ON tasks(source_type, source_id) WHERE source_id IS NOT NULL;
+-- Non-unique: multiple tasks can share same source (e.g., multiple action items from one call)
+CREATE INDEX idx_tasks_source ON tasks(source_type, source_id) WHERE source_id IS NOT NULL;
 CREATE INDEX idx_tasks_client_status ON tasks(client_id, status) WHERE archived_at IS NULL;
 CREATE INDEX idx_tasks_due_date ON tasks(due_date) WHERE archived_at IS NULL;
 CREATE INDEX idx_tasks_snooze_until ON tasks(snooze_until) WHERE snooze_until IS NOT NULL;

@@ -69,7 +69,8 @@ CREATE TABLE tasks (
 
 -- Unique constraints
 CREATE UNIQUE INDEX idx_tasks_idempotency_key ON tasks(idempotency_key) WHERE idempotency_key IS NOT NULL;
-CREATE UNIQUE INDEX idx_tasks_source ON tasks(source_type, source_id) WHERE source_id IS NOT NULL;
+-- Non-unique: multiple tasks can share same source (e.g., multiple action items from one call)
+CREATE INDEX idx_tasks_source ON tasks(source_type, source_id) WHERE source_id IS NOT NULL;
 
 -- Query indexes
 CREATE INDEX idx_tasks_client_status ON tasks(client_id, status) WHERE archived_at IS NULL;
