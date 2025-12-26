@@ -218,6 +218,142 @@
     height: 16px;
 }
 
+/* Filter Bar */
+.filter-bar {
+    display: flex;
+    gap: 0.75rem;
+    margin-bottom: 1.25rem;
+    padding: 0.875rem 1rem;
+    background: var(--bg-elevated);
+    border: 1px solid var(--border-subtle);
+    border-radius: 12px;
+    align-items: center;
+    flex-wrap: wrap;
+}
+
+.filter-group {
+    flex-shrink: 0;
+}
+
+.filter-search {
+    width: 200px;
+    padding: 0.5rem 0.875rem;
+    background: var(--bg-base);
+    border: 1px solid var(--border-subtle);
+    border-radius: 8px;
+    color: var(--text-primary);
+    font-family: var(--font-display);
+    font-size: 0.8rem;
+    transition: all 0.2s;
+}
+
+.filter-search::placeholder {
+    color: var(--text-muted);
+}
+
+.filter-search:focus {
+    outline: none;
+    border-color: var(--accent);
+    box-shadow: 0 0 0 2px var(--accent-glow);
+}
+
+.filter-select {
+    padding: 0.5rem 2rem 0.5rem 0.75rem;
+    background: var(--bg-base);
+    border: 1px solid var(--border-subtle);
+    border-radius: 8px;
+    color: var(--text-primary);
+    font-family: var(--font-display);
+    font-size: 0.8rem;
+    cursor: pointer;
+    transition: all 0.2s;
+    appearance: none;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%236b7280' stroke-width='2'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 0.5rem center;
+}
+
+.filter-select:hover {
+    border-color: var(--border-glow);
+}
+
+.filter-select:focus {
+    outline: none;
+    border-color: var(--accent);
+}
+
+.filter-clear-btn {
+    padding: 0.5rem 1rem;
+    background: transparent;
+    border: 1px solid var(--border-subtle);
+    border-radius: 8px;
+    color: var(--text-secondary);
+    font-family: var(--font-display);
+    font-size: 0.8rem;
+    cursor: pointer;
+    transition: all 0.2s;
+    margin-left: auto;
+}
+
+.filter-clear-btn:hover:not(:disabled) {
+    background: var(--bg-base);
+    border-color: var(--border-glow);
+    color: var(--text-primary);
+}
+
+.filter-clear-btn:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+}
+
+/* Task Stats */
+.task-stats {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 1rem;
+    margin-bottom: 1.5rem;
+}
+
+.stat-card {
+    background: var(--bg-elevated);
+    border: 1px solid var(--border-subtle);
+    border-radius: 12px;
+    padding: 1rem 1.25rem;
+    text-align: center;
+    transition: all 0.2s;
+}
+
+.stat-card:hover {
+    border-color: var(--border-glow);
+    transform: translateY(-1px);
+}
+
+.stat-card.danger {
+    border-color: rgba(239, 68, 68, 0.3);
+    background: linear-gradient(135deg, rgba(239, 68, 68, 0.08) 0%, var(--bg-elevated) 100%);
+}
+
+.stat-card.danger .stat-value {
+    color: #ef4444;
+}
+
+.stat-value {
+    font-size: 1.75rem;
+    font-weight: 700;
+    color: var(--accent-light);
+    line-height: 1.2;
+}
+
+.stat-label {
+    font-size: 0.75rem;
+    font-weight: 500;
+    color: var(--text-secondary);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    margin-top: 0.25rem;
+    display: block;
+}
+
 /* Capacity Meter */
 .capacity-meter {
     background: var(--bg-elevated);
@@ -1141,4 +1277,122 @@
 
 .pending-fields .task-form-label {
     color: #f59e0b;
+}
+
+/* Client Detail View */
+.client-header-bar {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    margin-bottom: 1.5rem;
+    padding: 1rem 1.25rem;
+    background: var(--bg-elevated);
+    border: 1px solid var(--border-subtle);
+    border-radius: 12px;
+}
+
+.client-color-indicator {
+    width: 8px;
+    height: 40px;
+    border-radius: 4px;
+    flex-shrink: 0;
+}
+
+.client-info {
+    flex: 1;
+}
+
+.client-status-badge {
+    display: inline-block;
+    padding: 0.25rem 0.75rem;
+    border-radius: 6px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+
+.client-status-badge.active {
+    background: rgba(16, 185, 129, 0.15);
+    color: #10b981;
+}
+
+.client-status-badge.paused {
+    background: rgba(245, 158, 11, 0.15);
+    color: #f59e0b;
+}
+
+.client-status-badge.churned {
+    background: rgba(239, 68, 68, 0.15);
+    color: #ef4444;
+}
+
+.client-status-badge.prospect {
+    background: rgba(59, 130, 246, 0.15);
+    color: #3b82f6;
+}
+
+.show-more-hint {
+    padding: 0.75rem 1rem;
+    text-align: center;
+    color: var(--text-muted);
+    font-size: 0.8rem;
+    font-style: italic;
+    border-top: 1px solid var(--border-subtle);
+}
+
+/* Overdue Section Enhancement */
+.task-section#section-overdue .task-section-header,
+.task-section#section-client-overdue .task-section-header {
+    background: linear-gradient(135deg, rgba(239, 68, 68, 0.1) 0%, transparent 100%);
+    border-color: rgba(239, 68, 68, 0.2);
+}
+
+.task-section#section-overdue .task-section-title,
+.task-section#section-client-overdue .task-section-title {
+    color: #ef4444;
+}
+
+.task-section#section-overdue svg,
+.task-section#section-client-overdue svg {
+    color: #ef4444;
+}
+
+/* Responsive Filter Bar */
+@media (max-width: 900px) {
+    .filter-bar {
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+    .filter-group {
+        width: 100%;
+    }
+
+    .filter-search,
+    .filter-select {
+        width: 100%;
+    }
+
+    .filter-clear-btn {
+        margin-left: 0;
+        margin-top: 0.5rem;
+    }
+
+    .task-stats {
+        grid-template-columns: repeat(2, 1fr);
+    }
+}
+
+/* Stat Card Value Colors */
+.stat-value.success {
+    color: #10b981;
+}
+
+.stat-value.warning {
+    color: #f59e0b;
+}
+
+.stat-value.danger {
+    color: #ef4444;
 }

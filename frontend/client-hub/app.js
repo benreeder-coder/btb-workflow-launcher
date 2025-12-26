@@ -15,6 +15,13 @@ const ClientHub = (function() {
         loading: false,
         modalMode: 'create', // 'create' or 'edit'
         editingTaskId: null,
+        // Filter state
+        filters: {
+            priority: '',
+            status: '',
+            client_id: '',
+            search: ''
+        }
     };
 
     // ==================== ICONS ====================
@@ -525,25 +532,149 @@ const ClientHub = (function() {
         }
     }
 
+    // ==================== FILTER BAR ====================
+    function renderFilterBar(viewId = 'today') {
+        const clientOptions = state.clients.map(c =>
+            `<option value="${c.id}" ${state.filters.client_id === c.id ? 'selected' : ''}>${escapeHtml(c.name)}</option>`
+        ).join('');
+
+        return `
+            <div class="filter-bar" id="filter-bar-${viewId}">
+                <div class="filter-group">
+                    <input type="text"
+                           class="filter-search"
+                           placeholder="Search tasks..."
+                           value="${escapeHtml(state.filters.search)}"
+                           onchange="ClientHub.updateFilter('search', this.value)"
+                           onkeyup="if(event.key === 'Enter') ClientHub.applyFilters()" />
+                </div>
+                <div class="filter-group">
+                    <select class="filter-select" onchange="ClientHub.updateFilter('priority', this.value)">
+                        <option value="">All Priorities</option>
+                        <option value="P0" ${state.filters.priority === 'P0' ? 'selected' : ''}>P0 - Urgent</option>
+                        <option value="P1" ${state.filters.priority === 'P1' ? 'selected' : ''}>P1 - High</option>
+                        <option value="P2" ${state.filters.priority === 'P2' ? 'selected' : ''}>P2 - Normal</option>
+                        <option value="P3" ${state.filters.priority === 'P3' ? 'selected' : ''}>P3 - Low</option>
+                    </select>
+                </div>
+                <div class="filter-group">
+                    <select class="filter-select" onchange="ClientHub.updateFilter('status', this.value)">
+                        <option value="">All Statuses</option>
+                        <option value="NOT_STARTED" ${state.filters.status === 'NOT_STARTED' ? 'selected' : ''}>To Do</option>
+                        <option value="IN_PROGRESS" ${state.filters.status === 'IN_PROGRESS' ? 'selected' : ''}>In Progress</option>
+                        <option value="PENDING" ${state.filters.status === 'PENDING' ? 'selected' : ''}>Pending</option>
+                    </select>
+                </div>
+                <div class="filter-group">
+                    <select class="filter-select" onchange="ClientHub.updateFilter('client_id', this.value)">
+                        <option value="">All Clients</option>
+                        ${clientOptions}
+                    </select>
+                </div>
+                <button class="filter-clear-btn" onclick="ClientHub.clearFilters()" ${hasActiveFilters() ? '' : 'disabled'}>
+                    Clear
+                </button>
+            </div>
+        `;
+    }
+
+    function hasActiveFilters() {
+        return state.filters.priority || state.filters.status || state.filters.client_id || state.filters.search;
+    }
+
+    function updateFilter(key, value) {
+        state.filters[key] = value;
+        applyFilters();
+    }
+
+    function clearFilters() {
+        state.filters = { priority: '', status: '', client_id: '', search: '' };
+        applyFilters();
+    }
+
+    function applyFilters() {
+        // Re-render current view with new filters
+        const container = document.getElementById('hub-main-content');
+        if (container) {
+            navigateTo(state.currentView);
+        }
+    }
+
+    function filterTasks(tasks) {
+        return tasks.filter(task => {
+            if (state.filters.priority && task.priority !== state.filters.priority) return false;
+            if (state.filters.status && task.status !== state.filters.status) return false;
+            if (state.filters.client_id && task.client_id !== state.filters.client_id) return false;
+            if (state.filters.search) {
+                const search = state.filters.search.toLowerCase();
+                const title = (task.title || '').toLowerCase();
+                const desc = (task.description || '').toLowerCase();
+                if (!title.includes(search) && !desc.includes(search)) return false;
+            }
+            return true;
+        });
+    }
+
     // ==================== TODAY VIEW ====================
     async function renderTodayView(container) {
         container.innerHTML = '<div class="hub-loading"><div class="spinner"></div></div>';
 
         try {
-            const response = await fetch(`${API_BASE}/api/hub/views/today`);
+            // Fetch ALL open tasks (not just today's)
+            const response = await fetch(`${API_BASE}/api/hub/tasks?limit=500`);
             if (!response.ok) {
-                let errorMsg = `HTTP ${response.status}`;
-                try {
-                    const errData = await response.json();
-                    errorMsg = errData.detail || JSON.stringify(errData);
-                } catch {
-                    errorMsg = await response.text() || errorMsg;
-                }
-                throw new Error(errorMsg);
+                throw new Error(`HTTP ${response.status}`);
             }
-            const data = await response.json();
+            const allTasks = await response.json();
 
-            const { meetings = [], morning_tasks = [], afternoon_tasks = [], evening_tasks = [], unscheduled_tasks = [], capacity_used_minutes = 0, capacity_total_minutes = 360 } = data;
+            // Also fetch today's view for meetings and capacity
+            const todayRes = await fetch(`${API_BASE}/api/hub/views/today`);
+            const todayData = todayRes.ok ? await todayRes.json() : {};
+            const { meetings = [], capacity_used_minutes = 0, capacity_total_minutes = 360 } = todayData;
+
+            // Filter out completed tasks and apply user filters
+            let openTasks = allTasks.filter(t => t.status !== 'COMPLETED' && !t.archived_at);
+            openTasks = filterTasks(openTasks);
+
+            // Group tasks by due date category
+            const today = new Date();
+            today.setHours(0, 0, 0, 0);
+            const tomorrow = new Date(today);
+            tomorrow.setDate(tomorrow.getDate() + 1);
+
+            const overdue = [];
+            const dueToday = [];
+            const upcoming = [];
+            const noDueDate = [];
+
+            openTasks.forEach(task => {
+                if (!task.due_date) {
+                    noDueDate.push(task);
+                } else {
+                    const dueDate = new Date(task.due_date);
+                    dueDate.setHours(0, 0, 0, 0);
+                    if (dueDate < today) {
+                        overdue.push(task);
+                    } else if (dueDate.getTime() === today.getTime()) {
+                        dueToday.push(task);
+                    } else {
+                        upcoming.push(task);
+                    }
+                }
+            });
+
+            // Sort each group by priority then due date
+            const sortTasks = (a, b) => {
+                const priorityOrder = { P0: 0, P1: 1, P2: 2, P3: 3 };
+                const pDiff = (priorityOrder[a.priority] || 2) - (priorityOrder[b.priority] || 2);
+                if (pDiff !== 0) return pDiff;
+                if (a.due_date && b.due_date) return new Date(a.due_date) - new Date(b.due_date);
+                return 0;
+            };
+            overdue.sort(sortTasks);
+            dueToday.sort(sortTasks);
+            upcoming.sort(sortTasks);
+            noDueDate.sort(sortTasks);
 
             let html = `
                 <div class="quick-add">
@@ -557,13 +688,24 @@ const ClientHub = (function() {
                     </button>
                 </div>
 
-                <div class="capacity-meter">
-                    <div class="capacity-header">
-                        <span class="capacity-label">Today's Capacity</span>
-                        <span class="capacity-value">${Math.round(capacity_used_minutes / 60)}h / ${Math.round(capacity_total_minutes / 60)}h</span>
+                ${renderFilterBar('today')}
+
+                <div class="task-stats">
+                    <div class="stat-card ${overdue.length > 0 ? 'danger' : ''}">
+                        <span class="stat-value">${overdue.length}</span>
+                        <span class="stat-label">Overdue</span>
                     </div>
-                    <div class="capacity-bar">
-                        <div class="capacity-fill ${capacity_used_minutes > capacity_total_minutes ? 'danger' : capacity_used_minutes > capacity_total_minutes * 0.8 ? 'warning' : ''}" style="width: ${Math.min(100, (capacity_used_minutes / capacity_total_minutes) * 100)}%"></div>
+                    <div class="stat-card">
+                        <span class="stat-value">${dueToday.length}</span>
+                        <span class="stat-label">Due Today</span>
+                    </div>
+                    <div class="stat-card">
+                        <span class="stat-value">${upcoming.length}</span>
+                        <span class="stat-label">Upcoming</span>
+                    </div>
+                    <div class="stat-card">
+                        <span class="stat-value">${openTasks.length}</span>
+                        <span class="stat-label">Total Open</span>
                     </div>
                 </div>
             `;
@@ -574,7 +716,7 @@ const ClientHub = (function() {
                     <div class="meetings-section">
                         <div class="task-section-header">
                             ${icons.calendar}
-                            <span class="task-section-title">Meetings</span>
+                            <span class="task-section-title">Today's Meetings</span>
                             <span class="task-section-count">${meetings.length}</span>
                         </div>
                         ${meetings.map(m => renderMeetingCard(m)).join('')}
@@ -582,32 +724,32 @@ const ClientHub = (function() {
                 `;
             }
 
-            // Morning tasks
-            if (morning_tasks.length > 0) {
-                html += renderTaskSection('Morning', icons.morning, morning_tasks);
+            // Overdue tasks
+            if (overdue.length > 0) {
+                html += renderTaskSection('Overdue', icons.overdue, overdue, 'overdue');
             }
 
-            // Afternoon tasks
-            if (afternoon_tasks.length > 0) {
-                html += renderTaskSection('Afternoon', icons.afternoon, afternoon_tasks);
+            // Due Today tasks
+            if (dueToday.length > 0) {
+                html += renderTaskSection('Due Today', icons.today, dueToday, 'due-today');
             }
 
-            // Evening tasks
-            if (evening_tasks.length > 0) {
-                html += renderTaskSection('Evening', icons.evening, evening_tasks);
+            // Upcoming tasks
+            if (upcoming.length > 0) {
+                html += renderTaskSection('Upcoming', icons.upcoming, upcoming, 'upcoming');
             }
 
-            // Unscheduled
-            if (unscheduled_tasks.length > 0) {
-                html += renderTaskSection('Unscheduled', icons.inbox, unscheduled_tasks);
+            // No Due Date tasks
+            if (noDueDate.length > 0) {
+                html += renderTaskSection('No Due Date', icons.inbox, noDueDate, 'no-due-date');
             }
 
-            if (meetings.length === 0 && morning_tasks.length === 0 && afternoon_tasks.length === 0 && evening_tasks.length === 0 && unscheduled_tasks.length === 0) {
+            if (openTasks.length === 0) {
                 html += `
                     <div class="empty-state">
                         <div class="empty-state-icon">${icons.completed}</div>
                         <h3>All clear!</h3>
-                        <p>No tasks for today. Click "Add Task" to create one.</p>
+                        <p>${hasActiveFilters() ? 'No tasks match your filters.' : 'No open tasks. Click "Add Task" to create one.'}</p>
                     </div>
                 `;
             }
@@ -895,29 +1037,24 @@ const ClientHub = (function() {
             const data = await response.json();
 
             // Overdue endpoint returns a raw array, not {tasks: [...]}
-            const tasks = Array.isArray(data) ? data : (data.tasks || []);
+            let tasks = Array.isArray(data) ? data : (data.tasks || []);
+            tasks = filterTasks(tasks);
+
+            let html = renderFilterBar('overdue');
 
             if (tasks.length === 0) {
-                container.innerHTML = `
+                html += `
                     <div class="empty-state">
                         <div class="empty-state-icon">${icons.completed}</div>
                         <h3>All Caught Up!</h3>
-                        <p>No overdue tasks.</p>
+                        <p>${hasActiveFilters() ? 'No tasks match your filters.' : 'No overdue tasks.'}</p>
                     </div>
                 `;
-                return;
+            } else {
+                html += renderTaskSection('Overdue Tasks', icons.overdue, tasks, 'overdue');
             }
 
-            container.innerHTML = `
-                <div class="task-section">
-                    <div class="task-section-header">
-                        ${icons.overdue}
-                        <span class="task-section-title">Overdue</span>
-                        <span class="task-section-count">${tasks.length}</span>
-                    </div>
-                    ${tasks.map(t => renderTaskCard(t)).join('')}
-                </div>
-            `;
+            container.innerHTML = html;
         } catch (error) {
             container.innerHTML = `<div class="empty-state"><p>${escapeHtml(error.message)}</p></div>`;
         }
@@ -933,14 +1070,17 @@ const ClientHub = (function() {
             if (!response.ok) throw new Error('Failed to load');
             const data = await response.json();
 
-            const tasks = data.tasks || [];
+            let tasks = data.tasks || [];
+            tasks = filterTasks(tasks);
 
             let html = `
-                <div class="filter-tabs">
+                <div class="filter-tabs" style="margin-bottom: 1rem;">
                     <button class="filter-tab ${days === 7 ? 'active' : ''}" onclick="ClientHub.navigateTo('upcoming', { days: 7 })">7 Days</button>
                     <button class="filter-tab ${days === 14 ? 'active' : ''}" onclick="ClientHub.navigateTo('upcoming', { days: 14 })">14 Days</button>
                     <button class="filter-tab ${days === 30 ? 'active' : ''}" onclick="ClientHub.navigateTo('upcoming', { days: 30 })">30 Days</button>
                 </div>
+
+                ${renderFilterBar('upcoming')}
             `;
 
             if (tasks.length === 0) {
@@ -948,7 +1088,7 @@ const ClientHub = (function() {
                     <div class="empty-state">
                         <div class="empty-state-icon">${icons.upcoming}</div>
                         <h3>Clear Schedule</h3>
-                        <p>No tasks in the next ${days} days.</p>
+                        <p>${hasActiveFilters() ? 'No tasks match your filters.' : `No tasks in the next ${days} days.`}</p>
                     </div>
                 `;
             } else {
@@ -960,17 +1100,8 @@ const ClientHub = (function() {
                     grouped[dateKey].push(task);
                 });
 
-                Object.entries(grouped).forEach(([date, dateTasks]) => {
-                    html += `
-                        <div class="task-section">
-                            <div class="task-section-header">
-                                ${icons.calendar}
-                                <span class="task-section-title">${formatDueDate(date)}</span>
-                                <span class="task-section-count">${dateTasks.length}</span>
-                            </div>
-                            ${dateTasks.map(t => renderTaskCard(t)).join('')}
-                        </div>
-                    `;
+                Object.entries(grouped).forEach(([date, dateTasks], idx) => {
+                    html += renderTaskSection(formatDueDate(date), icons.calendar, dateTasks, `upcoming-${idx}`);
                 });
             }
 
@@ -1076,51 +1207,127 @@ const ClientHub = (function() {
         try {
             const [clientRes, tasksRes] = await Promise.all([
                 fetch(`${API_BASE}/api/hub/clients/${params.id}`),
-                fetch(`${API_BASE}/api/hub/tasks?client_id=${params.id}`)
+                fetch(`${API_BASE}/api/hub/tasks?client_id=${params.id}&limit=500`)
             ]);
 
             if (!clientRes.ok) throw new Error('Failed to load client');
 
             const client = await clientRes.json();
-            const tasksData = tasksRes.ok ? await tasksRes.json() : { tasks: [] };
-            const tasks = tasksData.tasks || [];
+            const allTasks = tasksRes.ok ? await tasksRes.json() : [];
+
+            // Group tasks by status
+            const today = new Date();
+            today.setHours(0, 0, 0, 0);
+
+            const openTasks = allTasks.filter(t => t.status !== 'COMPLETED' && !t.archived_at);
+            const completedTasks = allTasks.filter(t => t.status === 'COMPLETED');
+
+            // Further group open tasks
+            const overdue = openTasks.filter(t => t.due_date && new Date(t.due_date) < today);
+            const dueToday = openTasks.filter(t => {
+                if (!t.due_date) return false;
+                const d = new Date(t.due_date);
+                d.setHours(0, 0, 0, 0);
+                return d.getTime() === today.getTime();
+            });
+            const upcoming = openTasks.filter(t => t.due_date && new Date(t.due_date) > today);
+            const noDueDate = openTasks.filter(t => !t.due_date);
+
+            // Sort by priority
+            const sortByPriority = (a, b) => {
+                const order = { P0: 0, P1: 1, P2: 2, P3: 3 };
+                return (order[a.priority] || 2) - (order[b.priority] || 2);
+            };
+            overdue.sort(sortByPriority);
+            dueToday.sort(sortByPriority);
+            upcoming.sort(sortByPriority);
+            noDueDate.sort(sortByPriority);
 
             let html = `
-                <div class="stats-grid">
-                    <div class="stat-card">
-                        <div class="stat-value">${tasks.filter(t => t.status !== 'COMPLETED').length}</div>
-                        <div class="stat-label">Open Tasks</div>
+                <div class="client-header-bar">
+                    <div class="client-color-indicator" style="background: ${client.color_hex || '#a855f7'}"></div>
+                    <div class="client-info">
+                        <span class="client-status-badge ${client.status || 'active'}">${client.status || 'active'}</span>
+                    </div>
+                    <button class="add-task-btn" onclick="ClientHub.openTaskModal()">
+                        ${icons.plus} Add Task
+                    </button>
+                </div>
+
+                <div class="task-stats">
+                    <div class="stat-card ${overdue.length > 0 ? 'danger' : ''}">
+                        <span class="stat-value">${overdue.length}</span>
+                        <span class="stat-label">Overdue</span>
                     </div>
                     <div class="stat-card">
-                        <div class="stat-value success">${tasks.filter(t => t.status === 'COMPLETED').length}</div>
-                        <div class="stat-label">Completed</div>
+                        <span class="stat-value">${openTasks.length}</span>
+                        <span class="stat-label">Open</span>
                     </div>
                     <div class="stat-card">
-                        <div class="stat-value ${client.health_status === 'RED' ? 'danger' : client.health_status === 'YELLOW' ? 'warning' : 'success'}">${client.health_status || 'GREEN'}</div>
-                        <div class="stat-label">Health</div>
+                        <span class="stat-value">${completedTasks.length}</span>
+                        <span class="stat-label">Completed</span>
+                    </div>
+                    <div class="stat-card">
+                        <span class="stat-value ${client.health_status === 'RED' ? 'danger' : client.health_status === 'YELLOW' ? 'warning' : ''}">${client.health_status || 'GREEN'}</span>
+                        <span class="stat-label">Health</span>
                     </div>
                 </div>
             `;
 
-            if (tasks.length === 0) {
+            if (openTasks.length === 0 && completedTasks.length === 0) {
                 html += `
                     <div class="empty-state">
                         <div class="empty-state-icon">${icons.inbox}</div>
                         <h3>No Tasks</h3>
-                        <p>No tasks for this client yet.</p>
+                        <p>No tasks for this client yet. Click "Add Task" to create one.</p>
                     </div>
                 `;
             } else {
-                html += `
-                    <div class="task-section">
-                        <div class="task-section-header">
-                            ${icons.inbox}
-                            <span class="task-section-title">Tasks</span>
-                            <span class="task-section-count">${tasks.length}</span>
+                // Overdue
+                if (overdue.length > 0) {
+                    html += renderTaskSection('Overdue', icons.overdue, overdue, 'client-overdue');
+                }
+
+                // Due Today
+                if (dueToday.length > 0) {
+                    html += renderTaskSection('Due Today', icons.today, dueToday, 'client-today');
+                }
+
+                // Upcoming
+                if (upcoming.length > 0) {
+                    html += renderTaskSection('Upcoming', icons.upcoming, upcoming, 'client-upcoming');
+                }
+
+                // No Due Date
+                if (noDueDate.length > 0) {
+                    html += renderTaskSection('No Due Date', icons.inbox, noDueDate, 'client-nodue');
+                }
+
+                // Completed (collapsed by default)
+                if (completedTasks.length > 0) {
+                    html += `
+                        <div class="task-section collapsed" id="section-client-completed">
+                            <div class="task-section-header" onclick="ClientHub.toggleSection('client-completed')">
+                                <span class="collapse-icon">${icons.chevron || '▼'}</span>
+                                ${icons.completed}
+                                <span class="task-section-title">Completed</span>
+                                <span class="task-section-count">${completedTasks.length}</span>
+                            </div>
+                            <div class="task-section-content">
+                                <div class="task-list-header">
+                                    <span></span>
+                                    <span>Task</span>
+                                    <span>Client</span>
+                                    <span>Due</span>
+                                    <span>Status</span>
+                                    <span>Priority</span>
+                                </div>
+                                ${completedTasks.slice(0, 20).map(t => renderTaskRow(t)).join('')}
+                                ${completedTasks.length > 20 ? `<div class="show-more-hint">+ ${completedTasks.length - 20} more completed tasks</div>` : ''}
+                            </div>
                         </div>
-                        ${tasks.map(t => renderTaskCard(t)).join('')}
-                    </div>
-                `;
+                    `;
+                }
             }
 
             container.innerHTML = html;
@@ -1430,6 +1637,10 @@ const ClientHub = (function() {
         saveSettings,
         toggleSection,
         updateTaskField,
+        // Filter functions
+        updateFilter,
+        clearFilters,
+        applyFilters,
     };
 })();
 
