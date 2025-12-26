@@ -45,6 +45,7 @@ const ClientHub = (function() {
         afternoon: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="5"/><path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/></svg>`,
         evening: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>`,
         chevron: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>`,
+        workflows: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="6" height="6" rx="1"/><rect x="15" y="3" width="6" height="6" rx="1"/><rect x="9" y="15" width="6" height="6" rx="1"/><line x1="6" y1="9" x2="6" y2="12"/><line x1="6" y1="12" x2="12" y2="12"/><line x1="12" y1="12" x2="12" y2="15"/><line x1="18" y1="9" x2="18" y2="12"/><line x1="18" y1="12" x2="12" y2="12"/></svg>`,
     };
 
     // ==================== UTILITY FUNCTIONS ====================
@@ -443,6 +444,10 @@ const ClientHub = (function() {
                 <div class="hub-nav-item" data-view="calendar" onclick="ClientHub.navigateTo('calendar')">
                     ${icons.calendar}
                     <span>Calendar</span>
+                </div>
+                <div class="hub-nav-item" data-view="workflows" onclick="window.open('https://proposal-interface-taupe.vercel.app/', '_blank')">
+                    ${icons.workflows}
+                    <span>Workflows</span>
                 </div>
                 <div class="hub-nav-item" data-view="settings" onclick="ClientHub.navigateTo('settings')">
                     ${icons.settings}
