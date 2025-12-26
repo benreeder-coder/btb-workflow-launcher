@@ -1398,11 +1398,9 @@ const ClientHub = (function() {
             const nextWeekDate = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
             const nextWeek = getLocalDateString(nextWeekDate);
 
-            const response = await fetch(`${API_BASE}/api/hub/calendar?start_date=${today}&end_date=${nextWeek}`);
+            const response = await fetch(`${API_BASE}/api/hub/calendar?start=${today}&end=${nextWeek}`);
             if (!response.ok) throw new Error('Failed to load');
-            const data = await response.json();
-
-            const events = data.events || [];
+            const events = await response.json(); // API returns array directly
 
             if (events.length === 0) {
                 container.innerHTML = `
