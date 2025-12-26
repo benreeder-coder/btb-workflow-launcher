@@ -267,10 +267,18 @@ def match_or_create_client(
     domain: Optional[str],
 ) -> Optional[UUID]:
     """Match existing client or create new one."""
-    # Try to find by name (case-insensitive)
+    # Try to find by name (case-insensitive exact match)
     result = db.table("clients").select("id").ilike("name", name).execute()
     if result.data:
         return UUID(result.data[0]["id"])
+
+    # Try to find by domain in high_level_client_domain column
+    if domain:
+        result = db.table("clients").select("id").ilike(
+            "high_level_client_domain", domain
+        ).execute()
+        if result.data:
+            return UUID(result.data[0]["id"])
 
     # Try to find by domain if provided
     if domain:
