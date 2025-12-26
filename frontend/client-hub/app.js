@@ -332,8 +332,15 @@ const ClientHub = (function() {
     }
 
     // ==================== NAVIGATION ====================
-    function navigateTo(view, params = {}) {
+    function navigateTo(view, params = null) {
+        // If params not provided, use stored params for current view refresh
+        if (params === null && view === state.currentView && state.viewParams) {
+            params = state.viewParams;
+        } else if (params === null) {
+            params = {};
+        }
         state.currentView = view;
+        state.viewParams = params;
 
         // Update sidebar active state
         document.querySelectorAll('.hub-nav-item').forEach(item => {
@@ -1815,7 +1822,7 @@ const ClientHub = (function() {
 
         try {
             const response = await fetch(`${API_BASE}/api/hub/tasks/${taskId}/status`, {
-                method: 'PUT',
+                method: 'PATCH',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ status: newStatus })
             });
