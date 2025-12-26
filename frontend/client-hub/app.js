@@ -445,7 +445,7 @@ const ClientHub = (function() {
                     ${icons.calendar}
                     <span>Calendar</span>
                 </div>
-                <div class="hub-nav-item" data-view="workflows" onclick="window.open('https://proposal-interface-taupe.vercel.app/', '_blank')">
+                <div class="hub-nav-item" data-view="workflows" onclick="document.querySelector('.tab-btn[data-tab=\\'workflows\\']').click()">
                     ${icons.workflows}
                     <span>Workflows</span>
                 </div>
