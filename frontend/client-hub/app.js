@@ -771,6 +771,7 @@ const ClientHub = (function() {
                 <div class="task-section-content">
                     <div class="task-list-header">
                         <span></span>
+                        <span></span>
                         <span>Task</span>
                         <span>Client</span>
                         <span>Due</span>
@@ -805,6 +806,8 @@ const ClientHub = (function() {
         const isCompleted = task.status === 'COMPLETED';
         const isOverdue = task.due_date && new Date(task.due_date) < new Date() && !isCompleted;
         const isPending = task.status === 'PENDING';
+        const subtaskCount = task.subtasks?.length || 0;
+        const completedSubtasks = task.subtasks?.filter(s => s.status === 'COMPLETED').length || 0;
 
         let rowClass = 'task-row';
         if (isCompleted) rowClass += ' completed';
@@ -831,39 +834,235 @@ const ClientHub = (function() {
         ).join('');
 
         return `
-            <div class="${rowClass}" data-task-id="${task.id}">
-                <div class="task-checkbox ${isCompleted ? 'checked' : ''}" onclick="event.stopPropagation(); ClientHub.toggleTaskStatus('${task.id}', '${task.status}')">
-                    ${icons.check}
-                </div>
-                <div class="task-title-cell" onclick="ClientHub.startInlineEdit('${task.id}', 'title', this)">
-                    <span class="task-title editable-field">${escapeHtml(task.title)}</span>
-                    ${task.estimated_minutes ? `<span class="task-time-badge">${task.estimated_minutes}m</span>` : ''}
-                </div>
-                <div class="task-client-cell">
-                    <select class="inline-select client-select"
-                            onchange="ClientHub.updateTaskField('${task.id}', 'client_id', this.value || null)"
+            <div class="task-row-wrapper" data-task-id="${task.id}">
+                <div class="${rowClass}">
+                    <div class="task-expand-toggle" onclick="event.stopPropagation(); ClientHub.toggleTaskExpand('${task.id}')">
+                        <span class="expand-icon">${icons.chevron}</span>
+                        ${subtaskCount > 0 ? `<span class="subtask-count">${completedSubtasks}/${subtaskCount}</span>` : ''}
+                    </div>
+                    <div class="task-checkbox ${isCompleted ? 'checked' : ''}" onclick="event.stopPropagation(); ClientHub.toggleTaskStatus('${task.id}', '${task.status}')">
+                        ${icons.check}
+                    </div>
+                    <div class="task-title-cell" onclick="ClientHub.startInlineEdit('${task.id}', 'title', this)">
+                        <span class="task-title editable-field">${escapeHtml(task.title)}</span>
+                        ${task.estimated_minutes ? `<span class="task-time-badge">${task.estimated_minutes}m</span>` : ''}
+                    </div>
+                    <div class="task-client-cell">
+                        <select class="inline-select client-select"
+                                onchange="ClientHub.updateTaskField('${task.id}', 'client_id', this.value || null)"
+                                onclick="event.stopPropagation()">
+                            <option value="">No client</option>
+                            ${clientOptions}
+                        </select>
+                    </div>
+                    <div class="task-due-cell ${isOverdue ? 'overdue' : ''}" onclick="event.stopPropagation()">
+                        <input type="date" class="inline-date" value="${task.due_date || ''}"
+                               onchange="ClientHub.updateTaskField('${task.id}', 'due_date', this.value || null)" />
+                        <span class="due-date-display">${task.due_date ? formatDueDate(task.due_date) : '—'}</span>
+                    </div>
+                    <select class="inline-select status-select ${task.status?.toLowerCase().replace('_', '-')}"
+                            onchange="ClientHub.updateTaskField('${task.id}', 'status', this.value)"
                             onclick="event.stopPropagation()">
-                        <option value="">No client</option>
-                        ${clientOptions}
+                        ${statusOptions.map(opt => `<option value="${opt.value}" ${task.status === opt.value ? 'selected' : ''}>${opt.label}</option>`).join('')}
+                    </select>
+                    <select class="inline-select priority-select ${task.priority?.toLowerCase()}"
+                            onchange="ClientHub.updateTaskField('${task.id}', 'priority', this.value)"
+                            onclick="event.stopPropagation()">
+                        ${priorityOptions.map(opt => `<option value="${opt.value}" ${task.priority === opt.value ? 'selected' : ''}>${opt.label}</option>`).join('')}
                     </select>
                 </div>
-                <div class="task-due-cell ${isOverdue ? 'overdue' : ''}" onclick="event.stopPropagation()">
-                    <input type="date" class="inline-date" value="${task.due_date || ''}"
-                           onchange="ClientHub.updateTaskField('${task.id}', 'due_date', this.value || null)" />
-                    <span class="due-date-display">${task.due_date ? formatDueDate(task.due_date) : '—'}</span>
+                <div class="subtasks-container" id="subtasks-${task.id}">
+                    <div class="subtasks-list"></div>
+                    <div class="add-subtask-row">
+                        <input type="text" class="add-subtask-input" placeholder="Add subtask..."
+                               onkeydown="if(event.key==='Enter'){ClientHub.addSubtask('${task.id}', this.value); this.value='';}" />
+                    </div>
                 </div>
-                <select class="inline-select status-select ${task.status?.toLowerCase().replace('_', '-')}"
-                        onchange="ClientHub.updateTaskField('${task.id}', 'status', this.value)"
-                        onclick="event.stopPropagation()">
-                    ${statusOptions.map(opt => `<option value="${opt.value}" ${task.status === opt.value ? 'selected' : ''}>${opt.label}</option>`).join('')}
-                </select>
-                <select class="inline-select priority-select ${task.priority?.toLowerCase()}"
-                        onchange="ClientHub.updateTaskField('${task.id}', 'priority', this.value)"
-                        onclick="event.stopPropagation()">
-                    ${priorityOptions.map(opt => `<option value="${opt.value}" ${task.priority === opt.value ? 'selected' : ''}>${opt.label}</option>`).join('')}
-                </select>
             </div>
         `;
+    }
+
+    function renderSubtaskRow(subtask, taskId) {
+        const isCompleted = subtask.status === 'COMPLETED';
+        const isOverdue = subtask.due_date && new Date(subtask.due_date) < new Date() && !isCompleted;
+
+        let rowClass = 'subtask-row';
+        if (isCompleted) rowClass += ' completed';
+        if (isOverdue) rowClass += ' overdue';
+
+        const statusOptions = [
+            { value: 'NOT_STARTED', label: 'To Do' },
+            { value: 'IN_PROGRESS', label: 'In Progress' },
+            { value: 'PENDING', label: 'Pending' },
+            { value: 'COMPLETED', label: 'Done' }
+        ];
+
+        const priorityOptions = [
+            { value: 'P0', label: 'P0' },
+            { value: 'P1', label: 'P1' },
+            { value: 'P2', label: 'P2' },
+            { value: 'P3', label: 'P3' }
+        ];
+
+        return `
+            <div class="${rowClass}" data-subtask-id="${subtask.id}">
+                <div class="subtask-checkbox ${isCompleted ? 'checked' : ''}" onclick="event.stopPropagation(); ClientHub.toggleSubtaskStatus('${subtask.id}', '${subtask.status}', '${taskId}')">
+                    ${icons.check}
+                </div>
+                <div class="subtask-title-cell" onclick="ClientHub.startSubtaskInlineEdit('${subtask.id}', 'title', this, '${taskId}')">
+                    <span class="subtask-title editable-field">${escapeHtml(subtask.title)}</span>
+                </div>
+                <div class="subtask-due-cell ${isOverdue ? 'overdue' : ''}" onclick="event.stopPropagation()">
+                    <input type="date" class="inline-date" value="${subtask.due_date || ''}"
+                           onchange="ClientHub.updateSubtaskField('${subtask.id}', 'due_date', this.value || null, '${taskId}')" />
+                    <span class="due-date-display">${subtask.due_date ? formatDueDate(subtask.due_date) : '—'}</span>
+                </div>
+                <select class="inline-select status-select ${subtask.status?.toLowerCase().replace('_', '-')}"
+                        onchange="ClientHub.updateSubtaskField('${subtask.id}', 'status', this.value, '${taskId}')"
+                        onclick="event.stopPropagation()">
+                    ${statusOptions.map(opt => `<option value="${opt.value}" ${subtask.status === opt.value ? 'selected' : ''}>${opt.label}</option>`).join('')}
+                </select>
+                <select class="inline-select priority-select ${subtask.priority?.toLowerCase() || ''}"
+                        onchange="ClientHub.updateSubtaskField('${subtask.id}', 'priority', this.value, '${taskId}')"
+                        onclick="event.stopPropagation()">
+                    <option value="" ${!subtask.priority ? 'selected' : ''}>—</option>
+                    ${priorityOptions.map(opt => `<option value="${opt.value}" ${subtask.priority === opt.value ? 'selected' : ''}>${opt.label}</option>`).join('')}
+                </select>
+                <button class="subtask-delete-btn" onclick="event.stopPropagation(); ClientHub.deleteSubtask('${subtask.id}', '${taskId}')" title="Delete subtask">×</button>
+            </div>
+        `;
+    }
+
+    async function toggleTaskExpand(taskId) {
+        const wrapper = document.querySelector(`.task-row-wrapper[data-task-id="${taskId}"]`);
+        if (!wrapper) return;
+
+        const isExpanded = wrapper.classList.contains('expanded');
+
+        if (isExpanded) {
+            wrapper.classList.remove('expanded');
+        } else {
+            wrapper.classList.add('expanded');
+            // Load subtasks
+            await loadSubtasks(taskId);
+        }
+    }
+
+    async function loadSubtasks(taskId) {
+        const container = document.querySelector(`#subtasks-${taskId} .subtasks-list`);
+        if (!container) return;
+
+        try {
+            const response = await fetch(`${API_BASE}/api/hub/tasks/${taskId}/subtasks`);
+            if (!response.ok) throw new Error('Failed to load subtasks');
+
+            const subtasks = await response.json();
+
+            if (subtasks.length === 0) {
+                container.innerHTML = '<div class="no-subtasks">No subtasks yet</div>';
+            } else {
+                container.innerHTML = subtasks.map(s => renderSubtaskRow(s, taskId)).join('');
+            }
+        } catch (error) {
+            console.error('Failed to load subtasks:', error);
+            container.innerHTML = '<div class="subtask-error">Failed to load subtasks</div>';
+        }
+    }
+
+    async function addSubtask(taskId, title) {
+        if (!title.trim()) return;
+
+        try {
+            const response = await fetch(`${API_BASE}/api/hub/tasks/${taskId}/subtasks`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ title: title.trim() })
+            });
+
+            if (response.ok) {
+                await loadSubtasks(taskId);
+                // Update subtask count in parent row
+                navigateTo(state.currentView);
+            }
+        } catch (error) {
+            console.error('Failed to add subtask:', error);
+        }
+    }
+
+    async function toggleSubtaskStatus(subtaskId, currentStatus, taskId) {
+        const newStatus = currentStatus === 'COMPLETED' ? 'NOT_STARTED' : 'COMPLETED';
+        await updateSubtaskField(subtaskId, 'status', newStatus, taskId);
+    }
+
+    async function updateSubtaskField(subtaskId, field, value, taskId) {
+        try {
+            const response = await fetch(`${API_BASE}/api/hub/subtasks/${subtaskId}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ [field]: value })
+            });
+
+            if (response.ok) {
+                await loadSubtasks(taskId);
+            }
+        } catch (error) {
+            console.error('Failed to update subtask:', error);
+        }
+    }
+
+    async function deleteSubtask(subtaskId, taskId) {
+        try {
+            const response = await fetch(`${API_BASE}/api/hub/subtasks/${subtaskId}`, {
+                method: 'DELETE'
+            });
+
+            if (response.ok) {
+                await loadSubtasks(taskId);
+                navigateTo(state.currentView);
+            }
+        } catch (error) {
+            console.error('Failed to delete subtask:', error);
+        }
+    }
+
+    function startSubtaskInlineEdit(subtaskId, field, cellElement, taskId) {
+        event.stopPropagation();
+
+        const titleSpan = cellElement.querySelector('.subtask-title');
+        if (!titleSpan) return;
+
+        const currentValue = titleSpan.textContent;
+
+        const input = document.createElement('input');
+        input.type = 'text';
+        input.className = 'inline-title-input';
+        input.value = currentValue;
+
+        const saveEdit = async () => {
+            const newValue = input.value.trim();
+            if (newValue && newValue !== currentValue) {
+                await updateSubtaskField(subtaskId, field, newValue, taskId);
+            } else {
+                await loadSubtasks(taskId);
+            }
+        };
+
+        input.addEventListener('blur', saveEdit);
+        input.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                input.blur();
+            }
+            if (e.key === 'Escape') {
+                input.value = currentValue;
+                input.blur();
+            }
+        });
+
+        titleSpan.style.display = 'none';
+        cellElement.insertBefore(input, titleSpan);
+        input.focus();
+        input.select();
     }
 
     // Keep old renderTaskCard for views that still need it (will phase out)
@@ -1330,6 +1529,7 @@ const ClientHub = (function() {
                                 <div class="task-section-content">
                                     <div class="task-list-header">
                                         <span></span>
+                                        <span></span>
                                         <span>Task</span>
                                         <span>Client</span>
                                         <span>Due</span>
@@ -1753,6 +1953,13 @@ const ClientHub = (function() {
         toggleSection,
         updateTaskField,
         startInlineEdit,
+        // Subtask functions
+        toggleTaskExpand,
+        addSubtask,
+        toggleSubtaskStatus,
+        updateSubtaskField,
+        deleteSubtask,
+        startSubtaskInlineEdit,
         // Filter functions
         updateFilter,
         clearFilters,

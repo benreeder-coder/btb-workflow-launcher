@@ -465,7 +465,7 @@
 /* Task List Header */
 .task-list-header {
     display: grid;
-    grid-template-columns: 24px 1fr 80px 60px 90px 50px;
+    grid-template-columns: 32px 24px 1fr 80px 60px 90px 50px;
     align-items: center;
     gap: 0.5rem;
     padding: 0.4rem 0.75rem;
@@ -478,19 +478,23 @@
     letter-spacing: 0.05em;
 }
 
+/* Task Row Wrapper (for expand/collapse) */
+.task-row-wrapper {
+    border-bottom: 1px solid var(--border-subtle);
+}
+
+.task-row-wrapper:last-child {
+    border-bottom: none;
+}
+
 /* Task Row (Compact ClickUp-style) */
 .task-row {
     display: grid;
-    grid-template-columns: 24px 1fr 80px 60px 90px 50px;
+    grid-template-columns: 32px 24px 1fr 80px 60px 90px 50px;
     align-items: center;
     gap: 0.5rem;
     padding: 0.5rem 0.75rem;
-    border-bottom: 1px solid var(--border-subtle);
     transition: background 0.15s;
-}
-
-.task-row:last-child {
-    border-bottom: none;
 }
 
 .task-row:hover {
@@ -507,6 +511,204 @@
 
 .task-row.pending {
     background: rgba(245, 158, 11, 0.05);
+}
+
+/* Task Expand Toggle */
+.task-expand-toggle {
+    display: flex;
+    align-items: center;
+    gap: 0.25rem;
+    cursor: pointer;
+    color: var(--text-tertiary);
+}
+
+.task-expand-toggle:hover {
+    color: var(--text-secondary);
+}
+
+.expand-icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 16px;
+    height: 16px;
+    transition: transform 0.2s;
+}
+
+.expand-icon svg {
+    width: 12px;
+    height: 12px;
+}
+
+.task-row-wrapper.expanded .expand-icon {
+    transform: rotate(180deg);
+}
+
+.subtask-count {
+    font-size: 0.65rem;
+    color: var(--text-muted);
+}
+
+/* Subtasks Container */
+.subtasks-container {
+    display: none;
+    padding-left: 3rem;
+    background: var(--bg-base);
+    border-top: 1px solid var(--border-subtle);
+}
+
+.task-row-wrapper.expanded .subtasks-container {
+    display: block;
+}
+
+/* Subtask Row */
+.subtask-row {
+    display: grid;
+    grid-template-columns: 20px 1fr 60px 80px 50px 24px;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.4rem 0.75rem;
+    border-bottom: 1px solid var(--border-subtle);
+    font-size: 0.85rem;
+}
+
+.subtask-row:last-child {
+    border-bottom: none;
+}
+
+.subtask-row:hover {
+    background: rgba(168, 85, 247, 0.03);
+}
+
+.subtask-row.completed {
+    opacity: 0.5;
+}
+
+.subtask-row.completed .subtask-title {
+    text-decoration: line-through;
+}
+
+.subtask-row.overdue {
+    background: rgba(239, 68, 68, 0.03);
+}
+
+/* Subtask Checkbox */
+.subtask-checkbox {
+    width: 16px;
+    height: 16px;
+    border: 1.5px solid var(--border-default);
+    border-radius: 3px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: all 0.15s;
+}
+
+.subtask-checkbox:hover {
+    border-color: var(--accent);
+}
+
+.subtask-checkbox.checked {
+    background: var(--accent);
+    border-color: var(--accent);
+}
+
+.subtask-checkbox svg {
+    width: 10px;
+    height: 10px;
+    opacity: 0;
+    color: white;
+}
+
+.subtask-checkbox.checked svg {
+    opacity: 1;
+}
+
+/* Subtask Title Cell */
+.subtask-title-cell {
+    min-width: 0;
+    overflow: hidden;
+}
+
+.subtask-title {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    color: var(--text-secondary);
+}
+
+/* Subtask Due Cell */
+.subtask-due-cell {
+    position: relative;
+    font-size: 0.7rem;
+    color: var(--text-muted);
+}
+
+.subtask-due-cell.overdue {
+    color: #ef4444;
+}
+
+/* Subtask Delete Button */
+.subtask-delete-btn {
+    width: 20px;
+    height: 20px;
+    border: none;
+    background: transparent;
+    color: var(--text-muted);
+    cursor: pointer;
+    font-size: 1rem;
+    line-height: 1;
+    opacity: 0;
+    transition: opacity 0.15s, color 0.15s;
+}
+
+.subtask-row:hover .subtask-delete-btn {
+    opacity: 1;
+}
+
+.subtask-delete-btn:hover {
+    color: #ef4444;
+}
+
+/* Add Subtask Row */
+.add-subtask-row {
+    padding: 0.5rem 0.75rem;
+}
+
+.add-subtask-input {
+    width: 100%;
+    padding: 0.4rem 0.5rem;
+    background: var(--bg-card);
+    border: 1px solid var(--border-subtle);
+    border-radius: 4px;
+    color: var(--text-primary);
+    font-family: var(--font-display);
+    font-size: 0.8rem;
+}
+
+.add-subtask-input:focus {
+    outline: none;
+    border-color: var(--accent);
+}
+
+.add-subtask-input::placeholder {
+    color: var(--text-muted);
+}
+
+/* No Subtasks Message */
+.no-subtasks {
+    padding: 0.75rem;
+    color: var(--text-muted);
+    font-size: 0.8rem;
+    text-align: center;
+}
+
+.subtask-error {
+    padding: 0.75rem;
+    color: #ef4444;
+    font-size: 0.8rem;
+    text-align: center;
 }
 
 /* Task Title Cell */
