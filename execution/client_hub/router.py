@@ -14,6 +14,7 @@ from uuid import UUID
 from zoneinfo import ZoneInfo
 
 from fastapi import APIRouter, HTTPException, Depends, Query
+from pydantic import BaseModel
 
 from supabase_client import get_supabase, SupabaseClientError
 from . import crud
@@ -40,6 +41,11 @@ from .ranking import rank_tasks
 
 # Create router with prefix
 router = APIRouter(prefix="/api/hub", tags=["Client Hub"])
+
+
+# Simple request models for body parameters
+class StatusChangeRequest(BaseModel):
+    status: TaskStatus
 
 
 def get_db():
@@ -195,9 +201,9 @@ def update_task(task_id: UUID, updates: TaskUpdate, db=Depends(get_db)):
 
 
 @router.patch("/tasks/{task_id}/status", response_model=TaskWithSubtasks)
-def change_task_status(task_id: UUID, status: TaskStatus, db=Depends(get_db)):
+def change_task_status(task_id: UUID, body: StatusChangeRequest, db=Depends(get_db)):
     """Change task status."""
-    task = crud.update_task(db, task_id, TaskUpdate(status=status))
+    task = crud.update_task(db, task_id, TaskUpdate(status=body.status))
     if not task:
         raise HTTPException(status_code=404, detail="Task not found")
     return task
