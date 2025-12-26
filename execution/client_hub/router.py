@@ -11,6 +11,7 @@ REST endpoints for:
 from datetime import date, datetime, timedelta
 from typing import Optional, List
 from uuid import UUID
+from zoneinfo import ZoneInfo
 
 from fastapi import APIRouter, HTTPException, Depends, Query
 
@@ -52,6 +53,14 @@ def get_db():
 # ============================================
 # CLIENT ENDPOINTS
 # ============================================
+
+
+def get_local_today(db) -> date:
+    """Get today's date in the user's timezone (from settings)."""
+    settings = crud.get_settings(db)
+    user_tz = ZoneInfo(settings.timezone or "America/New_York")
+    return datetime.now(user_tz).date()
+
 
 @router.get("/clients", response_model=List[ClientWithCounts])
 def list_clients(
@@ -232,9 +241,10 @@ def snooze_task(task_id: UUID, until: datetime, db=Depends(get_db)):
 
 @router.post("/tasks/{task_id}/not-today", response_model=TaskWithSubtasks)
 def not_today(task_id: UUID, db=Depends(get_db)):
-    """Snooze a task until tomorrow 6am."""
+    """Snooze a task until tomorrow 6am in user's timezone."""
+    local_today = get_local_today(db)
     tomorrow_6am = datetime.combine(
-        date.today() + timedelta(days=1),
+        local_today + timedelta(days=1),
         datetime.strptime("06:00", "%H:%M").time()
     )
     task = crud.snooze_task(db, task_id, tomorrow_6am)
@@ -301,10 +311,13 @@ def get_today_view(db=Depends(get_db)):
     import logging
 
     try:
-        today = date.today()
-        logging.info(f"Getting today view for {today}")
-
+        # Get settings first to use the user's timezone
         settings = crud.get_settings(db)
+
+        # Calculate "today" in the user's timezone (default: America/New_York for Charlotte, NC)
+        user_tz = ZoneInfo(settings.timezone or "America/New_York")
+        today = datetime.now(user_tz).date()
+        logging.info(f"Getting today view for {today} (timezone: {settings.timezone})")
         logging.info(f"Got settings: capacity={settings.capacity_minutes_per_day}")
 
         # Get today's tasks
@@ -380,7 +393,7 @@ def get_inbox_view(db=Depends(get_db)):
 def get_pending_view(db=Depends(get_db)):
     """Get pending/blocked tasks grouped by client."""
     tasks = crud.get_pending_tasks(db)
-    today = date.today()
+    today = get_local_today(db)
 
     # Group by client
     clients_dict = {}

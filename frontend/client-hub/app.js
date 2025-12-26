@@ -47,6 +47,15 @@ const ClientHub = (function() {
         chevron: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>`,
     };
 
+    // ==================== UTILITY FUNCTIONS ====================
+    // Get local date string in YYYY-MM-DD format (avoids UTC conversion issues)
+    function getLocalDateString(date) {
+        const d = new Date(date);
+        return d.getFullYear() + '-' +
+               String(d.getMonth() + 1).padStart(2, '0') + '-' +
+               String(d.getDate()).padStart(2, '0');
+    }
+
     // ==================== INITIALIZATION ====================
     function init() {
         renderSidebar();
@@ -1650,14 +1659,6 @@ const ClientHub = (function() {
             month: 'long',
             day: 'numeric'
         });
-    }
-
-    // Get local date string in YYYY-MM-DD format (avoids UTC conversion issues)
-    function getLocalDateString(date) {
-        const d = new Date(date);
-        return d.getFullYear() + '-' +
-               String(d.getMonth() + 1).padStart(2, '0') + '-' +
-               String(d.getDate()).padStart(2, '0');
     }
 
     function formatDueDate(dateStr) {
