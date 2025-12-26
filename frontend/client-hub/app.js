@@ -445,10 +445,6 @@ const ClientHub = (function() {
                     ${icons.calendar}
                     <span>Calendar</span>
                 </div>
-                <div class="hub-nav-item" data-view="workflows" onclick="document.querySelector('.tab-btn[data-tab=\\'workflows\\']').click()">
-                    ${icons.workflows}
-                    <span>Workflows</span>
-                </div>
                 <div class="hub-nav-item" data-view="settings" onclick="ClientHub.navigateTo('settings')">
                     ${icons.settings}
                     <span>Settings</span>
