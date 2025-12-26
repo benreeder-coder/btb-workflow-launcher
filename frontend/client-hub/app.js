@@ -239,8 +239,8 @@ const ClientHub = (function() {
             form.reset();
             document.getElementById('pending-fields').classList.remove('show');
 
-            // Set default due date to today
-            document.getElementById('task-due-date').value = new Date().toISOString().split('T')[0];
+            // Set default due date to today (using local date)
+            document.getElementById('task-due-date').value = getLocalDateString(new Date());
         }
 
         overlay.classList.add('show');
@@ -636,8 +636,8 @@ const ClientHub = (function() {
             let openTasks = allTasks.filter(t => t.status !== 'COMPLETED' && !t.archived_at);
             openTasks = filterTasks(openTasks);
 
-            // Use date strings (YYYY-MM-DD) for reliable comparison - avoids timezone issues
-            const todayStr = new Date().toISOString().split('T')[0];
+            // Use local date string for reliable comparison (avoids UTC timezone shift)
+            const todayStr = getLocalDateString(new Date());
 
             // Group open tasks by due date - using string comparison
             const overdue = openTasks.filter(t => t.due_date && t.due_date < todayStr);
@@ -1206,8 +1206,8 @@ const ClientHub = (function() {
             // Sort calls by date descending (most recent first)
             calls.sort((a, b) => new Date(b.call_date) - new Date(a.call_date));
 
-            // Use date strings (YYYY-MM-DD) for reliable comparison
-            const todayStr = new Date().toISOString().split('T')[0];
+            // Use local date string for reliable comparison (avoids UTC timezone shift)
+            const todayStr = getLocalDateString(new Date());
 
             const openTasks = allTasks.filter(t => t.status !== 'COMPLETED' && !t.archived_at);
             const completedTasks = allTasks.filter(t => t.status === 'COMPLETED');
@@ -1383,8 +1383,11 @@ const ClientHub = (function() {
         container.innerHTML = '<div class="hub-loading"><div class="spinner"></div></div>';
 
         try {
-            const today = new Date().toISOString().split('T')[0];
-            const nextWeek = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+            // Use local dates to avoid UTC timezone shift issues
+            const now = new Date();
+            const today = getLocalDateString(now);
+            const nextWeekDate = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
+            const nextWeek = getLocalDateString(nextWeekDate);
 
             const response = await fetch(`${API_BASE}/api/hub/calendar?start_date=${today}&end_date=${nextWeek}`);
             if (!response.ok) throw new Error('Failed to load');
@@ -1403,10 +1406,10 @@ const ClientHub = (function() {
                 return;
             }
 
-            // Group by date
+            // Group by date using local time (not UTC)
             const grouped = {};
             events.forEach(event => {
-                const dateKey = new Date(event.start_time).toISOString().split('T')[0];
+                const dateKey = getLocalDateString(new Date(event.start_time));
                 if (!grouped[dateKey]) grouped[dateKey] = [];
                 grouped[dateKey].push(event);
             });
@@ -1551,10 +1554,10 @@ const ClientHub = (function() {
             const today = new Date();
 
             if (dueStr === 'today') {
-                task.due_date = today.toISOString().split('T')[0];
+                task.due_date = getLocalDateString(today);
             } else if (dueStr === 'tomorrow') {
                 today.setDate(today.getDate() + 1);
-                task.due_date = today.toISOString().split('T')[0];
+                task.due_date = getLocalDateString(today);
             } else if (/^\d{4}-\d{2}-\d{2}$/.test(dueStr)) {
                 task.due_date = dueStr;
             }
@@ -1647,6 +1650,14 @@ const ClientHub = (function() {
             month: 'long',
             day: 'numeric'
         });
+    }
+
+    // Get local date string in YYYY-MM-DD format (avoids UTC conversion issues)
+    function getLocalDateString(date) {
+        const d = new Date(date);
+        return d.getFullYear() + '-' +
+               String(d.getMonth() + 1).padStart(2, '0') + '-' +
+               String(d.getDate()).padStart(2, '0');
     }
 
     function formatDueDate(dateStr) {
